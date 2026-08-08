@@ -17,16 +17,13 @@ export const registerSchema =
     email: z
       .string()
       .trim()
-      .email(
-        'Email inválido'
-      )
+      .email('Email inválido')
       .max(
         255,
         'Email muito longo'
       )
-      .transform(
-        (email) =>
-          email.toLowerCase()
+      .transform((email) =>
+        email.toLowerCase()
       ),
 
     password: z
@@ -46,12 +43,9 @@ export const loginSchema =
     email: z
       .string()
       .trim()
-      .email(
-        'Email inválido'
-      )
-      .transform(
-        (email) =>
-          email.toLowerCase()
+      .email('Email inválido')
+      .transform((email) =>
+        email.toLowerCase()
       ),
 
     password: z
@@ -61,3 +55,9 @@ export const loginSchema =
         'A senha é obrigatória'
       ),
   })
+
+export type RegisterInput =
+  z.infer<typeof registerSchema>
+
+export type LoginInput =
+  z.infer<typeof loginSchema>

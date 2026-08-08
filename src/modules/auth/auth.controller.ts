@@ -1,3 +1,9 @@
+import type {
+  Request,
+  Response,
+  NextFunction,
+} from 'express'
+
 import {
   registerSchema,
   loginSchema,
@@ -10,17 +16,17 @@ import {
   logout,
 } from './auth.service.js'
 
+import { env } from '../../config/env.js'
+
 const cookieOptions = {
   httpOnly: true,
-
   secure:
-    process.env.NODE_ENV ===
+    env.NODE_ENV ===
     'production',
-
-  sameSite: 'lax',
+  sameSite: 'lax' as const,
 
   maxAge:
-    7 *
+    env.REFRESH_TOKEN_DAYS *
     24 *
     60 *
     60 *
@@ -28,10 +34,10 @@ const cookieOptions = {
 }
 
 export async function registerController(
-  req,
-  res,
-  next
-) {
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
   try {
     const data =
       registerSchema.parse(
@@ -41,7 +47,7 @@ export async function registerController(
     const user =
       await register(data)
 
-    return res
+    res
       .status(201)
       .json({
         user,
@@ -52,10 +58,10 @@ export async function registerController(
 }
 
 export async function loginController(
-  req,
-  res,
-  next
-) {
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
   try {
     const data =
       loginSchema.parse(
@@ -71,7 +77,7 @@ export async function loginController(
       cookieOptions
     )
 
-    return res.json({
+    res.json({
       user: result.user,
       accessToken:
         result.accessToken,
@@ -82,14 +88,13 @@ export async function loginController(
 }
 
 export async function refreshController(
-  req,
-  res,
-  next
-) {
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
   try {
     const refreshToken =
-      req.cookies
-        .refreshToken
+      req.cookies?.refreshToken
 
     const result =
       await refresh(
@@ -102,7 +107,7 @@ export async function refreshController(
       cookieOptions
     )
 
-    return res.json({
+    res.json({
       accessToken:
         result.accessToken,
     })
@@ -112,14 +117,13 @@ export async function refreshController(
 }
 
 export async function logoutController(
-  req,
-  res,
-  next
-) {
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
   try {
     const refreshToken =
-      req.cookies
-        .refreshToken
+      req.cookies?.refreshToken
 
     await logout(
       refreshToken
@@ -131,8 +135,7 @@ export async function logoutController(
         httpOnly: true,
 
         secure:
-          process.env
-            .NODE_ENV ===
+          env.NODE_ENV ===
           'production',
 
         sameSite:
@@ -140,9 +143,7 @@ export async function logoutController(
       }
     )
 
-    return res
-      .status(204)
-      .send()
+    res.status(204).send()
   } catch (error) {
     next(error)
   }

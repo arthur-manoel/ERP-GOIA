@@ -7,23 +7,46 @@ import {
   randomUUID,
 } from 'node:crypto'
 
+import { env } from '../../config/env.js'
+
 import {
   createRefreshToken,
   createUser,
   findUserByEmail,
   revokeRefreshToken,
   rotateRefreshToken,
+  UserPublic,
 } from './auth.model.js'
+
+import type {
+  RegisterInput,
+  LoginInput,
+} from './auth.schema.js'
 
 const ACCESS_TOKEN_EXPIRES =
   '15m'
 
+interface AccessTokenPayload {
+  role: string
+}
+
+interface AuthUser {
+  id: string
+  name: string
+  email: string
+  role: string
+}
+
 function createHttpError(
-  message,
-  statusCode
-) {
+  message: string,
+  statusCode: number
+): Error & {
+  statusCode: number
+} {
   const error =
-    new Error(message)
+    new Error(message) as Error & {
+      statusCode: number
+    }
 
   error.statusCode =
     statusCode
@@ -31,12 +54,17 @@ function createHttpError(
   return error
 }
 
-function generateAccessToken(user) {
+function generateAccessToken(
+  user: UserPublic
+): string {
+  const payload:
+    AccessTokenPayload = {
+    role: user.role,
+  }
+
   return jwt.sign(
-    {
-      role: user.role,
-    },
-    process.env.JWT_ACCESS_SECRET,
+    payload,
+    env.JWT_ACCESS_SECRET,
     {
       subject: user.id,
       expiresIn:
@@ -45,35 +73,34 @@ function generateAccessToken(user) {
   )
 }
 
-function generateRefreshToken() {
+function generateRefreshToken(): string {
   return randomBytes(64)
     .toString('hex')
 }
 
-function hashToken(token) {
+function hashToken(
+  token: string
+): string {
   return createHash('sha256')
     .update(token)
     .digest('hex')
 }
 
-function getRefreshExpiration() {
-  const days = Number(
-    process.env.REFRESH_TOKEN_DAYS
-      ?? 7
-  )
-
+function getRefreshExpiration(): Date {
   const expiresAt =
     new Date()
 
   expiresAt.setDate(
     expiresAt.getDate() +
-      days
+      env.REFRESH_TOKEN_DAYS
   )
 
   return expiresAt
 }
 
-export async function register(data) {
+export async function register(
+  data: RegisterInput
+): Promise<AuthUser> {
   const existingUser =
     await findUserByEmail(
       data.email
@@ -92,42 +119,32 @@ export async function register(data) {
     )
 
   const user = {
-    id:
-      randomUUID(),
-
-    name:
-      data.name,
-
-    email:
-      data.email,
-
+    id: randomUUID(),
+    name: data.name,
+    email: data.email,
     passwordHash,
   }
 
   await createUser(user)
 
   return {
-    id:
-      user.id,
-
-    name:
-      user.name,
-
-    email:
-      user.email,
-
-    role:
-      'FUNCIONARIO',
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: 'FUNCIONARIO',
   }
 }
 
-export async function login({
-  email,
-  password,
-}) {
+export async function login(
+  data: LoginInput
+): Promise<{
+  user: AuthUser
+  accessToken: string
+  refreshToken: string
+}> {
   const user =
     await findUserByEmail(
-      email
+      data.email
     )
 
   if (!user) {
@@ -147,7 +164,7 @@ export async function login({
   const passwordMatches =
     await argon2.verify(
       user.password_hash,
-      password
+      data.password
     )
 
   if (!passwordMatches) {
@@ -158,19 +175,15 @@ export async function login({
   }
 
   const accessToken =
-    generateAccessToken(
-      user
-    )
+    generateAccessToken(user)
 
   const refreshToken =
     generateRefreshToken()
 
   await createRefreshToken({
-    id:
-      randomUUID(),
+    id: randomUUID(),
 
-    userId:
-      user.id,
+    userId: user.id,
 
     tokenHash:
       hashToken(
@@ -183,17 +196,10 @@ export async function login({
 
   return {
     user: {
-      id:
-        user.id,
-
-      name:
-        user.name,
-
-      email:
-        user.email,
-
-      role:
-        user.role,
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
     },
 
     accessToken,
@@ -203,8 +209,11 @@ export async function login({
 }
 
 export async function refresh(
-  refreshToken
-) {
+  refreshToken: string | undefined
+): Promise<{
+  accessToken: string
+  refreshToken: string
+}> {
   if (!refreshToken) {
     throw createHttpError(
       'Refresh token não informado',
@@ -223,8 +232,7 @@ export async function refresh(
         ),
 
       newToken: {
-        id:
-          randomUUID(),
+        id: randomUUID(),
 
         tokenHash:
           hashToken(
@@ -237,28 +245,25 @@ export async function refresh(
     })
 
   const accessToken =
-    generateAccessToken(
-      user
-    )
+    generateAccessToken(user)
 
   return {
     accessToken,
-
     refreshToken:
       newRefreshToken,
   }
 }
 
 export async function logout(
-  refreshToken
-) {
+  refreshToken:
+    | string
+    | undefined
+): Promise<void> {
   if (!refreshToken) {
     return
   }
 
   await revokeRefreshToken(
-    hashToken(
-      refreshToken
-    )
+    hashToken(refreshToken)
   )
 }
