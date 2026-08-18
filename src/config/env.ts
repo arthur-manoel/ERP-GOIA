@@ -17,6 +17,7 @@ export const env = {
   DB_USER: getEnv('DB_USER'),
   DB_PASSWORD: getEnv('DB_PASSWORD'),
   DB_NAME: getEnv('DB_NAME'),
+  DB_PORT: getEnv('DB_PORT'),
 
   JWT_ACCESS_SECRET:
     getEnv('JWT_ACCESS_SECRET'),

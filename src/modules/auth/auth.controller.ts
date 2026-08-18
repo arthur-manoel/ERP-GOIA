@@ -70,7 +70,6 @@ export async function loginController(
 
     const result =
       await login(data)
-
     res.cookie(
       'refreshToken',
       result.refreshToken,

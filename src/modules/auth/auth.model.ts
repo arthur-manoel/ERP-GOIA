@@ -7,50 +7,51 @@ import db from '../../config/database.js'
 
 export interface UserRow
   extends RowDataPacket {
-  id: string
-  name: string
+  id: number
+  nome: string
   email: string
-  password_hash: string
-  role: string
-  is_active: boolean
+  senha: string
+  nivel_acesso: 'ADMIN' | 'USUARIO'
+  status: 'ATIVO' | 'INATIVO'
 }
 
 export interface UserPublic
   extends RowDataPacket {
-  id: string
-  name: string
+  id: number
+  nome: string
   email: string
-  role: string
-  is_active: boolean
+  nivel_acesso: 'ADMIN' | 'USUARIO'
+  status: 'ATIVO' | 'INATIVO'
 }
 
 interface RefreshTokenRow
   extends RowDataPacket {
-  id: string
-  user_id: string
+  id: number
+  id_usuario: number
 }
 
 interface CreateUserData {
-  id: string
-  name: string
+  nome: string
   email: string
-  passwordHash: string
+  senha: string
 }
 
 interface CreateRefreshTokenData {
-  id: string
-  userId: string
-  tokenHash: string
+  userId: number
+  token: string
   expiresAt: Date
+  ip?: string | null
+  userAgent?: string | null
 }
 
 interface RotateRefreshTokenData {
-  oldTokenHash: string
+  oldToken: string
 
   newToken: {
-    id: string
-    tokenHash: string
+    token: string
     expiresAt: Date
+    ip?: string | null
+    userAgent?: string | null
   }
 }
 
@@ -62,12 +63,12 @@ export async function findUserByEmail(
       `
         SELECT
           id,
-          name,
+          nome,
           email,
-          password_hash,
-          role,
-          is_active
-        FROM users
+          senha,
+          nivel_acesso,
+          status
+        FROM usuarios
         WHERE email = ?
         LIMIT 1
       `,
@@ -78,18 +79,18 @@ export async function findUserByEmail(
 }
 
 export async function findUserById(
-  id: string
+  id: number
 ): Promise<UserPublic | null> {
   const [rows] =
     await db.execute<UserPublic[]>(
       `
         SELECT
           id,
-          name,
+          nome,
           email,
-          role,
-          is_active
-        FROM users
+          nivel_acesso,
+          status
+        FROM usuarios
         WHERE id = ?
         LIMIT 1
       `,
@@ -100,58 +101,76 @@ export async function findUserById(
 }
 
 export async function createUser({
-  id,
-  name,
+  nome,
   email,
-  passwordHash,
-}: CreateUserData): Promise<void> {
-  await db.execute<ResultSetHeader>(
-    `
-      INSERT INTO users (
-        id,
-        name,
+  senha,
+}: CreateUserData): Promise<number> {
+  const [result] =
+    await db.execute<ResultSetHeader>(
+      `
+        INSERT INTO usuarios (
+          nome,
+          email,
+          senha,
+          nivel_acesso,
+          status
+        )
+        VALUES (
+          ?,
+          ?,
+          ?,
+          'USUARIO',
+          'ATIVO'
+        )
+      `,
+      [
+        nome,
         email,
-        password_hash,
-        role
-      )
-      VALUES (?, ?, ?, ?, 'FUNCIONARIO')
-    `,
-    [
-      id,
-      name,
-      email,
-      passwordHash,
-    ]
-  )
+        senha,
+      ]
+    )
+
+  return result.insertId
 }
 
 export async function createRefreshToken({
-  id,
   userId,
-  tokenHash,
+  token,
   expiresAt,
+  ip = null,
+  userAgent = null,
 }: CreateRefreshTokenData): Promise<void> {
   await db.execute<ResultSetHeader>(
     `
       INSERT INTO refresh_tokens (
-        id,
-        user_id,
-        token_hash,
-        expires_at
+        id_usuario,
+        token,
+        data_criacao,
+        data_expiracao,
+        ip,
+        user_agent
       )
-      VALUES (?, ?, ?, ?)
+      VALUES (
+        ?,
+        ?,
+        NOW(),
+        ?,
+        ?,
+        ?
+      )
     `,
     [
-      id,
       userId,
-      tokenHash,
+      token,
       expiresAt,
+      ip,
+      userAgent,
     ]
   )
 }
 
 export async function rotateRefreshToken({
-  oldTokenHash,
+  oldToken,
   newToken,
 }: RotateRefreshTokenData): Promise<UserPublic> {
   const connection =
@@ -167,15 +186,15 @@ export async function rotateRefreshToken({
         `
           SELECT
             id,
-            user_id
+            id_usuario
           FROM refresh_tokens
-          WHERE token_hash = ?
-            AND revoked_at IS NULL
-            AND expires_at > NOW()
+          WHERE token = ?
+            AND revogado = 0
+            AND data_expiracao > NOW()
           LIMIT 1
           FOR UPDATE
         `,
-        [oldTokenHash]
+        [oldToken]
       )
 
     const storedToken =
@@ -200,16 +219,16 @@ export async function rotateRefreshToken({
         `
           SELECT
             id,
-            name,
+            nome,
             email,
-            role,
-            is_active
-          FROM users
+            nivel_acesso,
+            status
+          FROM usuarios
           WHERE id = ?
           LIMIT 1
           FOR UPDATE
         `,
-        [storedToken.user_id]
+        [storedToken.id_usuario]
       )
 
     const user =
@@ -227,7 +246,7 @@ export async function rotateRefreshToken({
       throw error
     }
 
-    if (!user.is_active) {
+    if (user.status !== 'ATIVO') {
       const error =
         new Error(
           'Usuário desativado'
@@ -242,9 +261,11 @@ export async function rotateRefreshToken({
     await connection.execute<ResultSetHeader>(
       `
         UPDATE refresh_tokens
-        SET revoked_at = NOW()
+        SET
+          revogado = 1,
+          data_revogacao = NOW()
         WHERE id = ?
-          AND revoked_at IS NULL
+          AND revogado = 0
       `,
       [storedToken.id]
     )
@@ -252,18 +273,28 @@ export async function rotateRefreshToken({
     await connection.execute<ResultSetHeader>(
       `
         INSERT INTO refresh_tokens (
-          id,
-          user_id,
-          token_hash,
-          expires_at
+          id_usuario,
+          token,
+          data_criacao,
+          data_expiracao,
+          ip,
+          user_agent
         )
-        VALUES (?, ?, ?, ?)
+        VALUES (
+          ?,
+          ?,
+          NOW(),
+          ?,
+          ?,
+          ?
+        )
       `,
       [
-        newToken.id,
         user.id,
-        newToken.tokenHash,
+        newToken.token,
         newToken.expiresAt,
+        newToken.ip ?? null,
+        newToken.userAgent ?? null,
       ]
     )
 
@@ -280,15 +311,17 @@ export async function rotateRefreshToken({
 }
 
 export async function revokeRefreshToken(
-  tokenHash: string
+  token: string
 ): Promise<void> {
   await db.execute<ResultSetHeader>(
     `
       UPDATE refresh_tokens
-      SET revoked_at = NOW()
-      WHERE token_hash = ?
-        AND revoked_at IS NULL
+      SET
+        revogado = 1,
+        data_revogacao = NOW()
+      WHERE token = ?
+        AND revogado = 0
     `,
-    [tokenHash]
+    [token]
   )
 }

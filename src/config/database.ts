@@ -1,5 +1,4 @@
 import mysql from 'mysql2/promise'
-
 import { env } from './env.js'
 
 const db = mysql.createPool({
@@ -7,6 +6,12 @@ const db = mysql.createPool({
   user: env.DB_USER,
   password: env.DB_PASSWORD,
   database: env.DB_NAME,
+  port: Number(env.DB_PORT) || 13044, // 👈 Adicionado a porta aqui
+
+  // ⚠️ Configuração de SSL necessária para o Aiven
+  ssl: {
+    rejectUnauthorized: false // Permite a conexão segura sem exigir o arquivo .pem local
+  },
 
   waitForConnections: true,
   connectionLimit: 10,

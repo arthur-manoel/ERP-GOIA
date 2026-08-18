@@ -4,20 +4,27 @@ import type {
   NextFunction,
 } from 'express'
 
-import jwt, {
-  JwtPayload,
-} from 'jsonwebtoken'
+import jwt from 'jsonwebtoken'
 
 import { env } from '../config/env.js'
 
-interface AccessTokenPayload
-  extends JwtPayload {
+interface JwtPayload {
   sub: string
-  role: string
+  nivel_acesso: 'ADMIN' | 'USUARIO'
+}
+
+export interface AuthenticatedRequest
+  extends Request {
+  user: {
+    id: number
+    nivel_acesso:
+      | 'ADMIN'
+      | 'USUARIO'
+  }
 }
 
 export function authenticate(
-  req: Request,
+  req: AuthenticatedRequest,
   res: Response,
   next: NextFunction
 ): void {
@@ -46,13 +53,20 @@ export function authenticate(
       jwt.verify(
         token,
         env.JWT_ACCESS_SECRET
-      ) as AccessTokenPayload
+      )
 
     if (
+      typeof payload !==
+        'object' ||
+      payload === null ||
       typeof payload.sub !==
         'string' ||
-      typeof payload.role !==
-        'string'
+      (
+        payload.nivel_acesso !==
+          'ADMIN' &&
+        payload.nivel_acesso !==
+          'USUARIO'
+      )
     ) {
       res.status(401).json({
         error:
@@ -66,8 +80,12 @@ export function authenticate(
     }
 
     req.user = {
-      id: payload.sub,
-      role: payload.role,
+      id: Number(
+        payload.sub
+      ),
+
+      nivel_acesso:
+        payload.nivel_acesso,
     }
 
     next()

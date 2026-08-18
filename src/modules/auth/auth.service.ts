@@ -2,9 +2,7 @@ import argon2 from 'argon2'
 import jwt from 'jsonwebtoken'
 
 import {
-  createHash,
   randomBytes,
-  randomUUID,
 } from 'node:crypto'
 
 import { env } from '../../config/env.js'
@@ -23,18 +21,21 @@ import type {
   LoginInput,
 } from './auth.schema.js'
 
-const ACCESS_TOKEN_EXPIRES =
-  '15m'
+const ACCESS_TOKEN_EXPIRES = '15m'
 
 interface AccessTokenPayload {
-  role: string
+  nivel_acesso:
+    | 'ADMIN'
+    | 'USUARIO'
 }
 
 interface AuthUser {
-  id: string
-  name: string
+  id: number
+  nome: string
   email: string
-  role: string
+  nivel_acesso:
+    | 'ADMIN'
+    | 'USUARIO'
 }
 
 function createHttpError(
@@ -59,14 +60,15 @@ function generateAccessToken(
 ): string {
   const payload:
     AccessTokenPayload = {
-    role: user.role,
+    nivel_acesso:
+      user.nivel_acesso,
   }
 
   return jwt.sign(
     payload,
     env.JWT_ACCESS_SECRET,
     {
-      subject: user.id,
+      subject: String(user.id),
       expiresIn:
         ACCESS_TOKEN_EXPIRES,
     }
@@ -76,14 +78,6 @@ function generateAccessToken(
 function generateRefreshToken(): string {
   return randomBytes(64)
     .toString('hex')
-}
-
-function hashToken(
-  token: string
-): string {
-  return createHash('sha256')
-    .update(token)
-    .digest('hex')
 }
 
 function getRefreshExpiration(): Date {
@@ -118,20 +112,18 @@ export async function register(
       data.password
     )
 
-  const user = {
-    id: randomUUID(),
-    name: data.name,
-    email: data.email,
-    passwordHash,
-  }
-
-  await createUser(user)
+  const userId =
+    await createUser({
+      nome: data.name,
+      email: data.email,
+      senha: passwordHash,
+    })
 
   return {
-    id: user.id,
-    name: user.name,
-    email: user.email,
-    role: 'FUNCIONARIO',
+    id: userId,
+    nome: data.name,
+    email: data.email,
+    nivel_acesso: 'USUARIO',
   }
 }
 
@@ -154,7 +146,7 @@ export async function login(
     )
   }
 
-  if (!user.is_active) {
+  if (user.status !== 'ATIVO') {
     throw createHttpError(
       'Usuário desativado',
       403
@@ -163,7 +155,7 @@ export async function login(
 
   const passwordMatches =
     await argon2.verify(
-      user.password_hash,
+      user.senha,
       data.password
     )
 
@@ -181,15 +173,8 @@ export async function login(
     generateRefreshToken()
 
   await createRefreshToken({
-    id: randomUUID(),
-
     userId: user.id,
-
-    tokenHash:
-      hashToken(
-        refreshToken
-      ),
-
+    token: refreshToken,
     expiresAt:
       getRefreshExpiration(),
   })
@@ -197,9 +182,10 @@ export async function login(
   return {
     user: {
       id: user.id,
-      name: user.name,
+      nome: user.nome,
       email: user.email,
-      role: user.role,
+      nivel_acesso:
+        user.nivel_acesso,
     },
 
     accessToken,
@@ -226,18 +212,12 @@ export async function refresh(
 
   const user =
     await rotateRefreshToken({
-      oldTokenHash:
-        hashToken(
-          refreshToken
-        ),
+      oldToken:
+        refreshToken,
 
       newToken: {
-        id: randomUUID(),
-
-        tokenHash:
-          hashToken(
-            newRefreshToken
-          ),
+        token:
+          newRefreshToken,
 
         expiresAt:
           getRefreshExpiration(),
@@ -249,6 +229,7 @@ export async function refresh(
 
   return {
     accessToken,
+
     refreshToken:
       newRefreshToken,
   }
@@ -264,6 +245,6 @@ export async function logout(
   }
 
   await revokeRefreshToken(
-    hashToken(refreshToken)
+    refreshToken
   )
 }
