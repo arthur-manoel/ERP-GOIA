@@ -8,23 +8,8 @@ import jwt from 'jsonwebtoken'
 
 import { env } from '../config/env.js'
 
-interface JwtPayload {
-  sub: string
-  nivel_acesso: 'ADMIN' | 'USUARIO'
-}
-
-export interface AuthenticatedRequest
-  extends Request {
-  user: {
-    id: number
-    nivel_acesso:
-      | 'ADMIN'
-      | 'USUARIO'
-  }
-}
-
 export function authenticate(
-  req: AuthenticatedRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ): void {

@@ -6,6 +6,7 @@ import { ZodError } from 'zod'
 import authRouter from './modules/auth/auth.router.js'
 import fornecedorRouter from './modules/fornecedor/fornecedor.router.js'
 import empresasRouter from './modules/empresas/empresa.router.js'
+import modelosRouter from './modules/modelos/modelos.router.js'
 
 const app = express()
 
@@ -18,6 +19,7 @@ app.use(cookieParser())
 app.use('/auth', authRouter)
 app.use('/fornecedor', fornecedorRouter)
 app.use('/empresas', empresasRouter)
+app.use('/modelos', modelosRouter)
 
 app.get('/', (req, res) => {
   return res.status(200).json({
