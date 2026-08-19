@@ -13,6 +13,10 @@
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
     "mysql2": "^3.23.2",
+<<<<<<< HEAD
+=======
+    "sequelize": "^6.37.8",
+>>>>>>> 142d2f9 (Update 18 8)
     "zod": "^4.4.3"
   },
   "devDependencies": {

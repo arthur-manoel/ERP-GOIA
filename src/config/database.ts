@@ -1,6 +1,10 @@
 import mysql from 'mysql2/promise'
 import { env } from './env.js'
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 142d2f9 (Update 18 8)
 const db = mysql.createPool({
   host: env.DB_HOST,
   user: env.DB_USER,
