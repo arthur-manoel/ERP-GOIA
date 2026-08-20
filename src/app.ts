@@ -10,6 +10,7 @@ import modelosRouter from './modules/modelos/modelos.router.js'
 import cargosRouter from './modules/cargos/cargos.router.js'
 import clientesRouter from './modules/clientes/clientes.router.js'
 import setoresRouter from './modules/setores/setores.router.js'
+import usuariosRouter from './modules/usuarios/usuarios.router.js'
 
 const app = express()
 
@@ -26,6 +27,7 @@ app.use('/modelos', modelosRouter)
 app.use('/cargos', cargosRouter)
 app.use('/clientes', clientesRouter)
 app.use('/setores', setoresRouter)
+app.use('/usuarios', usuariosRouter)
 
 app.get('/', (req, res) => {
   return res.status(200).json({
