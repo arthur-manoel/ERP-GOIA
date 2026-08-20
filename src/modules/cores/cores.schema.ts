@@ -2,60 +2,94 @@ import {
   z,
 } from 'zod'
 
-const nomeSchema =
-  z
-    .string()
-    .trim()
-    .min(
-      2,
-      'O nome deve possuir pelo menos 2 caracteres'
-    )
-    .max(
-      100,
-      'O nome deve possuir no máximo 100 caracteres'
-    )
-
-const codigoHexSchema =
-  z
-    .string()
-    .trim()
-    .regex(
-      /^#[0-9A-Fa-f]{6}$/,
-      'O código hexadecimal deve seguir o formato #RRGGBB'
-    )
-
 export const createCorSchema =
-  z
-    .object({
-      nome:
-        nomeSchema,
+  z.object({
+    id_empresa:
+      z
+        .number()
+        .int()
+        .positive(
+          'id_empresa deve ser maior que zero'
+        ),
 
-      codigo_hex:
-        codigoHexSchema,
+    nome:
+      z
+        .string()
+        .trim()
+        .min(
+          2,
+          'O nome deve possuir pelo menos 2 caracteres'
+        )
+        .max(
+          100,
+          'O nome deve possuir no máximo 100 caracteres'
+        ),
 
-      ativo:
-        z
-          .boolean()
-          .optional()
-          .default(true),
-    })
-    .strict()
+    codigo_hex:
+      z
+        .string()
+        .trim()
+        .regex(
+          /^#[0-9A-Fa-f]{6}$/,
+          'O código hexadecimal deve seguir o formato #RRGGBB'
+        ),
+
+    status:
+      z
+        .enum([
+          'ATIVO',
+          'INATIVO',
+        ])
+        .optional()
+        .default(
+          'ATIVO'
+        ),
+  })
 
 export const updateCorSchema =
   z
     .object({
+      id_empresa:
+        z
+          .number()
+          .int()
+          .positive(
+            'id_empresa deve ser maior que zero'
+          )
+          .optional(),
+
       nome:
-        nomeSchema.optional(),
+        z
+          .string()
+          .trim()
+          .min(
+            2,
+            'O nome deve possuir pelo menos 2 caracteres'
+          )
+          .max(
+            100,
+            'O nome deve possuir no máximo 100 caracteres'
+          )
+          .optional(),
 
       codigo_hex:
-        codigoHexSchema.optional(),
-
-      ativo:
         z
-          .boolean()
+          .string()
+          .trim()
+          .regex(
+            /^#[0-9A-Fa-f]{6}$/,
+            'O código hexadecimal deve seguir o formato #RRGGBB'
+          )
+          .optional(),
+
+      status:
+        z
+          .enum([
+            'ATIVO',
+            'INATIVO',
+          ])
           .optional(),
     })
-    .strict()
     .refine(
       (data) =>
         Object.keys(data)
@@ -71,11 +105,9 @@ export const corIdSchema =
     id:
       z.coerce
         .number()
-        .int(
-          'O ID deve ser um número inteiro'
-        )
+        .int()
         .positive(
-          'O ID deve ser maior que zero'
+          'ID inválido'
         ),
   })
 
@@ -93,17 +125,20 @@ export const listCoresSchema =
         .number()
         .int()
         .positive()
-        .max(
-          100,
-          'O limite máximo é 100'
-        )
+        .max(100)
         .default(20),
 
     q:
       z
         .string()
         .trim()
-        .max(100)
+        .optional(),
+
+    id_empresa:
+      z.coerce
+        .number()
+        .int()
+        .positive()
         .optional(),
 
     include_inativos:
@@ -113,7 +148,9 @@ export const listCoresSchema =
           'false',
         ])
         .optional()
-        .default('false')
+        .default(
+          'false'
+        )
         .transform(
           (value) =>
             value ===

@@ -3,81 +3,70 @@ import {
 } from 'express'
 
 import {
-  CorController,
+  authenticate,
+} from '../../middlewares/authenticate.js'
+
+import {
+  requireAdmin,
+} from '../../middlewares/requireAdmin.js'
+
+import {
+  createCor,
+  deleteCor,
+  getCorById,
+  listCores,
+  updateCor,
 } from './cores.controller.js'
 
 const router =
   Router()
 
-const controller =
-  new CorController()
-
 /**
- * GET /cores
- *
- * Lista as cores.
- *
- * Query params:
- * - page
- * - limit
- * - q
- * - include_inativos
+ * Cria uma nova cor.
  */
-router.get(
+router.post(
   '/',
-  controller.findAll.bind(
-    controller
-  )
+  authenticate,
+  requireAdmin,
+  createCor
 )
 
 /**
- * GET /cores/:id
- *
+ * Lista as cores.
+ */
+router.get(
+  '/',
+  authenticate,
+  listCores
+)
+
+/**
  * Busca uma cor pelo ID.
  */
 router.get(
   '/:id',
-  controller.findById.bind(
-    controller
-  )
+  authenticate,
+  getCorById
 )
 
 /**
- * POST /cores
- *
- * Cadastra uma nova cor.
- */
-router.post(
-  '/',
-  controller.create.bind(
-    controller
-  )
-)
-
-/**
- * PUT /cores/:id
- *
- * Atualiza parcialmente
- * uma cor.
+ * Atualiza uma cor.
  */
 router.put(
   '/:id',
-  controller.update.bind(
-    controller
-  )
+  authenticate,
+  requireAdmin,
+  updateCor
 )
 
 /**
- * DELETE /cores/:id
- *
- * Realiza exclusão lógica
- * definindo ativo = false.
+ * Desativa uma cor.
  */
 router.delete(
   '/:id',
-  controller.softDelete.bind(
-    controller
-  )
+  authenticate,
+  requireAdmin,
+  deleteCor
 )
 
 export default router

@@ -1,14 +1,10 @@
 import {
-  ZodError,
-} from 'zod'
-
-import {
-  create as createCorRepository,
-  findAll as findAllCoresRepository,
-  findById as findCorById,
-  findByNome as findCorByNome,
-  softDelete as softDeleteCorRepository,
-  update as updateCorRepository,
+  createCor as createCorRepository,
+  findAllCores,
+  findCorById,
+  findCorByNome,
+  softDeleteCor as softDeleteCorRepository,
+  updateCor as updateCorRepository,
 } from './cores.repository.js'
 
 import type {
@@ -20,11 +16,6 @@ import {
   createCorSchema,
   listCoresSchema,
   updateCorSchema,
-} from './cores.schema.js'
-
-import type {
-  CreateCorInput,
-  UpdateCorInput,
 } from './cores.schema.js'
 
 export class NotFoundError
@@ -53,100 +44,102 @@ export class ConflictError
 
 export class ValidationError
   extends Error {
-  public details?: unknown
-
   constructor(
-    message: string,
-    details?: unknown
+    message: string
   ) {
     super(message)
 
     this.name =
       'ValidationError'
-
-    this.details =
-      details
   }
-}
-
-function validate<T>(
-  schema: {
-    parse:
-      (
-        value: unknown
-      ) => T
-  },
-  data: unknown
-): T {
-  try {
-    return schema.parse(
-      data
-    )
-  } catch (error) {
-    if (
-      error instanceof
-      ZodError
-    ) {
-      throw new ValidationError(
-        'Dados inválidos',
-        error.issues
-      )
-    }
-
-    throw error
-  }
-}
-
-function isDuplicateEntryError(
-  error: unknown
-): boolean {
-  if (
-    typeof error !==
-      'object' ||
-    error === null
-  ) {
-    return false
-  }
-
-  const databaseError =
-    error as {
-      code?: string
-      errno?: number
-    }
-
-  return (
-    databaseError.code ===
-      'ER_DUP_ENTRY' ||
-    databaseError.errno ===
-      1062
-  )
 }
 
 export class CorService {
+  public async create(
+    body: unknown
+  ): Promise<CorRow> {
+    const parsed =
+      createCorSchema.safeParse(
+        body
+      )
+
+    if (!parsed.success) {
+      throw new ValidationError(
+        parsed.error.issues
+          .map(
+            (issue) =>
+              issue.message
+          )
+          .join(', ')
+      )
+    }
+
+    const data = {
+      ...parsed.data,
+
+      nome:
+        parsed.data.nome.trim(),
+
+      codigo_hex:
+        parsed.data.codigo_hex.toUpperCase(),
+    }
+
+    const existing =
+      await findCorByNome(
+        data.nome,
+        data.id_empresa
+      )
+
+    if (existing) {
+      throw new ConflictError(
+        'Já existe uma cor com este nome para esta empresa'
+      )
+    }
+
+    return createCorRepository(
+      data
+    )
+  }
+
   public async findAll(
     query: unknown
   ) {
-    const filters =
-      validate(
-        listCoresSchema,
+    const parsed =
+      listCoresSchema.safeParse(
         query
       )
 
+    if (!parsed.success) {
+      throw new ValidationError(
+        parsed.error.issues
+          .map(
+            (issue) =>
+              issue.message
+          )
+          .join(', ')
+      )
+    }
+
+    const {
+      page,
+      limit,
+      q,
+      id_empresa,
+      include_inativos,
+    } = parsed.data
+
     const result =
-      await findAllCoresRepository(
+      await findAllCores(
         {
-          q:
-            filters.q,
+          q,
+          id_empresa,
 
           includeInativos:
-            filters.include_inativos,
+            include_inativos,
         },
         {
-          page:
-            filters.page,
-
-          limit:
-            filters.limit,
+          page,
+          limit,
         }
       )
 
@@ -155,11 +148,8 @@ export class CorService {
         result.rows,
 
       pagination: {
-        page:
-          filters.page,
-
-        limit:
-          filters.limit,
+        page,
+        limit,
 
         total:
           result.count,
@@ -167,7 +157,7 @@ export class CorService {
         total_pages:
           Math.ceil(
             result.count /
-              filters.limit
+              limit
           ),
       },
     }
@@ -176,16 +166,20 @@ export class CorService {
   public async findById(
     params: unknown
   ): Promise<CorRow> {
-    const {
-      id,
-    } = validate(
-      corIdSchema,
-      params
-    )
+    const parsed =
+      corIdSchema.safeParse(
+        params
+      )
+
+    if (!parsed.success) {
+      throw new ValidationError(
+        'ID inválido'
+      )
+    }
 
     const cor =
       await findCorById(
-        id
+        parsed.data.id
       )
 
     if (!cor) {
@@ -197,163 +191,122 @@ export class CorService {
     return cor
   }
 
-  public async create(
-    body: unknown
-  ): Promise<CorRow> {
-    const data =
-      validate(
-        createCorSchema,
-        body
-      )
-
-    const normalizedData:
-      CreateCorInput = {
-      ...data,
-
-      nome:
-        data.nome.trim(),
-
-      codigo_hex:
-        data.codigo_hex.toUpperCase(),
-    }
-
-    const existingCor =
-      await findCorByNome(
-        normalizedData.nome
-      )
-
-    if (existingCor) {
-      throw new ConflictError(
-        'Já existe uma cor cadastrada com este nome'
-      )
-    }
-
-    try {
-      return await createCorRepository(
-        normalizedData
-      )
-    } catch (error) {
-      if (
-        isDuplicateEntryError(
-          error
-        )
-      ) {
-        throw new ConflictError(
-          'Já existe uma cor cadastrada com este nome'
-        )
-      }
-
-      throw error
-    }
-  }
-
   public async update(
     params: unknown,
     body: unknown
   ): Promise<CorRow> {
-    const {
-      id,
-    } = validate(
-      corIdSchema,
-      params
-    )
+    const parsedId =
+      corIdSchema.safeParse(
+        params
+      )
 
-    const data =
-      validate(
-        updateCorSchema,
+    if (
+      !parsedId.success
+    ) {
+      throw new ValidationError(
+        'ID inválido'
+      )
+    }
+
+    const parsedBody =
+      updateCorSchema.safeParse(
         body
       )
 
-    const currentCor =
+    if (
+      !parsedBody.success
+    ) {
+      throw new ValidationError(
+        parsedBody.error.issues
+          .map(
+            (issue) =>
+              issue.message
+          )
+          .join(', ')
+      )
+    }
+
+    const id =
+      parsedId.data.id
+
+    const current =
       await findCorById(
         id
       )
 
-    if (!currentCor) {
+    if (!current) {
       throw new NotFoundError(
         'Cor não encontrada'
       )
     }
 
-    const normalizedData:
-      UpdateCorInput = {
-      ...data,
+    const data = {
+      ...parsedBody.data,
     }
 
     if (
-      data.nome !==
-      undefined
+      data.codigo_hex
     ) {
-      normalizedData.nome =
-        data.nome.trim()
-
-      const existingCor =
-        await findCorByNome(
-          normalizedData.nome
-        )
-
-      if (
-        existingCor &&
-        existingCor.id !== id
-      ) {
-        throw new ConflictError(
-          'Já existe uma cor cadastrada com este nome'
-        )
-      }
-    }
-
-    if (
-      data.codigo_hex !==
-      undefined
-    ) {
-      normalizedData.codigo_hex =
+      data.codigo_hex =
         data.codigo_hex.toUpperCase()
     }
 
-    try {
-      const updatedCor =
-        await updateCorRepository(
-          id,
-          normalizedData
+    if (data.nome) {
+      data.nome =
+        data.nome.trim()
+
+      const idEmpresa =
+        data.id_empresa ??
+        current.id_empresa
+
+      const existing =
+        await findCorByNome(
+          data.nome,
+          idEmpresa
         )
 
-      if (!updatedCor) {
-        throw new NotFoundError(
-          'Cor não encontrada'
-        )
-      }
-
-      return updatedCor
-    } catch (error) {
       if (
-        isDuplicateEntryError(
-          error
-        )
+        existing &&
+        existing.id !== id
       ) {
         throw new ConflictError(
-          'Já existe uma cor cadastrada com este nome'
+          'Já existe uma cor com este nome para esta empresa'
         )
       }
-
-      throw error
     }
+
+    const updated =
+      await updateCorRepository(
+        id,
+        data
+      )
+
+    if (!updated) {
+      throw new NotFoundError(
+        'Cor não encontrada'
+      )
+    }
+
+    return updated
   }
 
-  public async softDelete(
+  public async delete(
     params: unknown
-  ): Promise<{
-    message: string
-  }> {
-    const {
-      id,
-    } = validate(
-      corIdSchema,
-      params
-    )
+  ): Promise<void> {
+    const parsed =
+      corIdSchema.safeParse(
+        params
+      )
+
+    if (!parsed.success) {
+      throw new ValidationError(
+        'ID inválido'
+      )
+    }
 
     const cor =
       await findCorById(
-        id
+        parsed.data.id
       )
 
     if (!cor) {
@@ -363,12 +316,7 @@ export class CorService {
     }
 
     await softDeleteCorRepository(
-      id
+      parsed.data.id
     )
-
-    return {
-      message:
-        'Cor desativada com sucesso',
-    }
   }
 }

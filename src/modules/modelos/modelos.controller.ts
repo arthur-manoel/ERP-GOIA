@@ -1,7 +1,7 @@
 import type {
-  NextFunction,
   Request,
   Response,
+  NextFunction,
 } from 'express'
 
 import {
@@ -30,7 +30,9 @@ export async function createModeloController(
       )
 
     const modelo =
-      await createModelo(data)
+      await createModelo(
+        data
+      )
 
     res
       .status(201)
@@ -71,7 +73,9 @@ export async function getModeloByIdController(
       )
 
     const modelo =
-      await getModeloById(id)
+      await getModeloById(
+        id
+      )
 
     res.json({
       modelo,
@@ -122,7 +126,9 @@ export async function deleteModeloController(
         req.params
       )
 
-    await deleteModelo(id)
+    await deleteModelo(
+      id
+    )
 
     res
       .status(204)

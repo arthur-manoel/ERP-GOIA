@@ -1,4 +1,4 @@
-import {
+import type {
   ResultSetHeader,
   RowDataPacket,
 } from 'mysql2'
@@ -8,31 +8,35 @@ import db from '../../config/database.js'
 export interface CorRow
   extends RowDataPacket {
   id: number
+  id_empresa: number
   nome: string
   codigo_hex: string
-  ativo: boolean
-  data_cadastro: Date
-}
-
-interface CountRow
-  extends RowDataPacket {
-  total: number
+  status:
+    | 'ATIVO'
+    | 'INATIVO'
 }
 
 export interface CreateCorData {
+  id_empresa: number
   nome: string
   codigo_hex: string
-  ativo?: boolean
+  status:
+    | 'ATIVO'
+    | 'INATIVO'
 }
 
 export interface UpdateCorData {
+  id_empresa?: number
   nome?: string
   codigo_hex?: string
-  ativo?: boolean
+  status?:
+    | 'ATIVO'
+    | 'INATIVO'
 }
 
 export interface CorFilters {
   q?: string
+  id_empresa?: number
   includeInativos?: boolean
 }
 
@@ -41,41 +45,48 @@ export interface Pagination {
   limit: number
 }
 
-export async function create(
+interface CountRow
+  extends RowDataPacket {
+  total: number
+}
+
+export async function createCor(
   data: CreateCorData
 ): Promise<CorRow> {
   const [result] =
     await db.execute<ResultSetHeader>(
       `
         INSERT INTO cores (
+          id_empresa,
           nome,
           codigo_hex,
-          ativo
+          status
         )
-        VALUES (?, ?, ?)
+        VALUES (?, ?, ?, ?)
       `,
       [
+        data.id_empresa,
         data.nome,
         data.codigo_hex,
-        data.ativo ?? true,
+        data.status,
       ]
     )
 
   const cor =
-    await findById(
+    await findCorById(
       result.insertId
     )
 
   if (!cor) {
     throw new Error(
-      'Erro ao recuperar cor após cadastro'
+      'Erro ao recuperar cor criada'
     )
   }
 
   return cor
 }
 
-export async function findAll(
+export async function findAllCores(
   filters: CorFilters,
   pagination: Pagination
 ): Promise<{
@@ -87,22 +98,37 @@ export async function findAll(
 
   const params:
     Array<
-      string | number | boolean
+      string | number
     > = []
 
   if (
     !filters.includeInativos
   ) {
     conditions.push(
-      'ativo = ?'
+      'status = ?'
     )
 
-    params.push(true)
+    params.push(
+      'ATIVO'
+    )
+  }
+
+  if (
+    filters.id_empresa !==
+    undefined
+  ) {
+    conditions.push(
+      'id_empresa = ?'
+    )
+
+    params.push(
+      filters.id_empresa
+    )
   }
 
   if (filters.q) {
     conditions.push(
-      'LOWER(nome) LIKE LOWER(?)'
+      'nome LIKE ?'
     )
 
     params.push(
@@ -121,18 +147,17 @@ export async function findAll(
     (pagination.page - 1) *
     pagination.limit
 
-  const [
-    [rows],
-    [countRows],
-  ] = await Promise.all([
-    db.execute<CorRow[]>(
+  const [rows] =
+    await db.execute<
+      CorRow[]
+    >(
       `
         SELECT
           id,
+          id_empresa,
           nome,
           codigo_hex,
-          ativo,
-          data_cadastro
+          status
         FROM cores
         ${whereClause}
         ORDER BY nome ASC
@@ -144,9 +169,12 @@ export async function findAll(
         pagination.limit,
         offset,
       ]
-    ),
+    )
 
-    db.execute<CountRow[]>(
+  const [countRows] =
+    await db.execute<
+      CountRow[]
+    >(
       `
         SELECT
           COUNT(*) AS total
@@ -154,18 +182,18 @@ export async function findAll(
         ${whereClause}
       `,
       params
-    ),
-  ])
+    )
 
   return {
     rows,
+
     count:
-      countRows[0]?.total ??
-      0,
+      countRows[0]
+        ?.total ?? 0,
   }
 }
 
-export async function findById(
+export async function findCorById(
   id: number
 ): Promise<CorRow | null> {
   const [rows] =
@@ -175,22 +203,28 @@ export async function findById(
       `
         SELECT
           id,
+          id_empresa,
           nome,
           codigo_hex,
-          ativo,
-          data_cadastro
+          status
         FROM cores
         WHERE id = ?
         LIMIT 1
       `,
-      [id]
+      [
+        id,
+      ]
     )
 
-  return rows[0] ?? null
+  return (
+    rows[0] ??
+    null
+  )
 }
 
-export async function findByNome(
-  nome: string
+export async function findCorByNome(
+  nome: string,
+  idEmpresa: number
 ): Promise<CorRow | null> {
   const [rows] =
     await db.execute<
@@ -199,22 +233,29 @@ export async function findByNome(
       `
         SELECT
           id,
+          id_empresa,
           nome,
           codigo_hex,
-          ativo,
-          data_cadastro
+          status
         FROM cores
-        WHERE LOWER(nome) =
-          LOWER(?)
+        WHERE
+          LOWER(nome) = LOWER(?)
+          AND id_empresa = ?
         LIMIT 1
       `,
-      [nome]
+      [
+        nome,
+        idEmpresa,
+      ]
     )
 
-  return rows[0] ?? null
+  return (
+    rows[0] ??
+    null
+  )
 }
 
-export async function update(
+export async function updateCor(
   id: number,
   data: UpdateCorData
 ): Promise<CorRow | null> {
@@ -223,11 +264,25 @@ export async function update(
 
   const values:
     Array<
-      string | boolean | number
+      string | number
     > = []
 
   if (
-    data.nome !== undefined
+    data.id_empresa !==
+    undefined
+  ) {
+    fields.push(
+      'id_empresa = ?'
+    )
+
+    values.push(
+      data.id_empresa
+    )
+  }
+
+  if (
+    data.nome !==
+    undefined
   ) {
     fields.push(
       'nome = ?'
@@ -252,59 +307,70 @@ export async function update(
   }
 
   if (
-    data.ativo !==
+    data.status !==
     undefined
   ) {
     fields.push(
-      'ativo = ?'
+      'status = ?'
     )
 
     values.push(
-      data.ativo
+      data.status
     )
   }
 
   if (
     fields.length === 0
   ) {
-    return findById(id)
+    return findCorById(
+      id
+    )
   }
 
-  values.push(id)
+  values.push(
+    id
+  )
 
   const [result] =
     await db.execute<ResultSetHeader>(
       `
         UPDATE cores
-        SET ${fields.join(', ')}
+        SET
+          ${fields.join(', ')}
         WHERE id = ?
       `,
       values
     )
 
   if (
-    result.affectedRows === 0
+    result.affectedRows ===
+    0
   ) {
     return null
   }
 
-  return findById(id)
+  return findCorById(
+    id
+  )
 }
 
-export async function softDelete(
+export async function softDeleteCor(
   id: number
 ): Promise<boolean> {
   const [result] =
     await db.execute<ResultSetHeader>(
       `
         UPDATE cores
-        SET ativo = FALSE
+        SET status = 'INATIVO'
         WHERE id = ?
       `,
-      [id]
+      [
+        id,
+      ]
     )
 
   return (
-    result.affectedRows > 0
+    result.affectedRows >
+    0
   )
 }

@@ -9,8 +9,12 @@ export const modeloStatusSchema =
 const idEmpresaSchema =
   z
     .number()
-    .int('id_empresa deve ser um número inteiro')
-    .positive('id_empresa deve ser um número positivo')
+    .int(
+      'id_empresa deve ser um número inteiro'
+    )
+    .positive(
+      'id_empresa deve ser um número positivo'
+    )
     .nullable()
 
 const nomeSchema =
@@ -49,7 +53,8 @@ export const createModeloSchema =
 
       descricao:
         descricaoSchema
-          .optional(),
+          .optional()
+          .default(null),
 
       status:
         modeloStatusSchema

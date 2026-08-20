@@ -1,16 +1,16 @@
 import {
-  createModelo as createModeloModel,
-  deleteModelo as deleteModeloModel,
+  createModelo as createModeloRepository,
+  deleteModelo as deleteModeloRepository,
   findAllModelos,
   findEmpresaById,
   findModeloById,
   findModeloByNome,
-  updateModelo as updateModeloModel,
-} from './modelos.model.js'
+  updateModelo as updateModeloRepository,
+} from './modelos.repository.js'
 
 import type {
   ModeloRow,
-} from './modelos.model.js'
+} from './modelos.repository.js'
 
 import type {
   CreateModeloInput,
@@ -30,7 +30,9 @@ function createHttpError(
   statusCode: number
 } {
   const error =
-    new Error(message) as Error & {
+    new Error(
+      message
+    ) as Error & {
       statusCode: number
     }
 
@@ -43,7 +45,9 @@ function createHttpError(
 function isDuplicateEntryError(
   error: unknown
 ): boolean {
-  if (!(error instanceof Error)) {
+  if (
+    !(error instanceof Error)
+  ) {
     return false
   }
 
@@ -61,7 +65,9 @@ function isDuplicateEntryError(
 function isForeignKeyError(
   error: unknown
 ): boolean {
-  if (!(error instanceof Error)) {
+  if (
+    !(error instanceof Error)
+  ) {
     return false
   }
 
@@ -76,19 +82,23 @@ function isForeignKeyError(
   )
 }
 
-async function ensureEmpresaExists(
+async function validateEmpresa(
   idEmpresa: number | null
 ): Promise<void> {
-  if (idEmpresa === null) {
+  if (
+    idEmpresa === null
+  ) {
     return
   }
 
-  const empresaExists =
+  const empresaExiste =
     await findEmpresaById(
       idEmpresa
     )
 
-  if (!empresaExists) {
+  if (
+    !empresaExiste
+  ) {
     throw createHttpError(
       'Empresa não encontrada',
       404
@@ -96,21 +106,21 @@ async function ensureEmpresaExists(
   }
 }
 
-async function ensureNomeDisponivel(
+async function validateModeloDuplicado(
   nome: string,
   idEmpresa: number | null,
-  currentModeloId?: number
+  modeloId?: number
 ): Promise<void> {
-  const existingModelo =
+  const modeloExistente =
     await findModeloByNome(
       nome,
       idEmpresa
     )
 
   if (
-    existingModelo &&
-    existingModelo.id !==
-      currentModeloId
+    modeloExistente &&
+    modeloExistente.id !==
+      modeloId
   ) {
     throw createHttpError(
       'Já existe um modelo com este nome para esta empresa',
@@ -122,20 +132,20 @@ async function ensureNomeDisponivel(
 export async function createModelo(
   data: CreateModeloInput
 ): Promise<ModeloRow> {
-  await ensureEmpresaExists(
+  await validateEmpresa(
     data.id_empresa
   )
 
-  await ensureNomeDisponivel(
+  await validateModeloDuplicado(
     data.nome,
     data.id_empresa
   )
 
-  let id: number
+  let modeloId: number
 
   try {
-    id =
-      await createModeloModel({
+    modeloId =
+      await createModeloRepository({
         id_empresa:
           data.id_empresa,
 
@@ -143,8 +153,7 @@ export async function createModelo(
           data.nome,
 
         descricao:
-          data.descricao ??
-          null,
+          data.descricao,
 
         status:
           data.status,
@@ -176,9 +185,13 @@ export async function createModelo(
   }
 
   const modelo =
-    await findModeloById(id)
+    await findModeloById(
+      modeloId
+    )
 
-  if (!modelo) {
+  if (
+    !modelo
+  ) {
     throw createHttpError(
       'Erro ao criar modelo',
       500
@@ -198,9 +211,13 @@ export async function getModeloById(
   id: number
 ): Promise<ModeloRow> {
   const modelo =
-    await findModeloById(id)
+    await findModeloById(
+      id
+    )
 
-  if (!modelo) {
+  if (
+    !modelo
+  ) {
     throw createHttpError(
       'Modelo não encontrado',
       404
@@ -214,10 +231,14 @@ export async function updateModelo(
   id: number,
   data: UpdateModeloInput
 ): Promise<ModeloRow> {
-  const existingModelo =
-    await findModeloById(id)
+  const modeloExistente =
+    await findModeloById(
+      id
+    )
 
-  if (!existingModelo) {
+  if (
+    !modeloExistente
+  ) {
     throw createHttpError(
       'Modelo não encontrado',
       404
@@ -228,38 +249,38 @@ export async function updateModelo(
     data.id_empresa !==
     undefined
       ? data.id_empresa
-      : existingModelo.id_empresa
+      : modeloExistente.id_empresa
 
   const nome =
     data.nome !==
     undefined
       ? data.nome
-      : existingModelo.nome
+      : modeloExistente.nome
 
   const descricao =
     data.descricao !==
     undefined
       ? data.descricao
-      : existingModelo.descricao
+      : modeloExistente.descricao
 
   const status =
     data.status !==
     undefined
       ? data.status
-      : existingModelo.status
+      : modeloExistente.status
 
-  await ensureEmpresaExists(
+  await validateEmpresa(
     idEmpresa
   )
 
-  await ensureNomeDisponivel(
+  await validateModeloDuplicado(
     nome,
     idEmpresa,
     id
   )
 
   try {
-    await updateModeloModel(
+    await updateModeloRepository(
       id,
       {
         id_empresa:
@@ -298,31 +319,41 @@ export async function updateModelo(
     throw error
   }
 
-  const modelo =
-    await findModeloById(id)
+  const modeloAtualizado =
+    await findModeloById(
+      id
+    )
 
-  if (!modelo) {
+  if (
+    !modeloAtualizado
+  ) {
     throw createHttpError(
       'Erro ao atualizar modelo',
       500
     )
   }
 
-  return modelo
+  return modeloAtualizado
 }
 
 export async function deleteModelo(
   id: number
 ): Promise<void> {
   const modelo =
-    await findModeloById(id)
+    await findModeloById(
+      id
+    )
 
-  if (!modelo) {
+  if (
+    !modelo
+  ) {
     throw createHttpError(
       'Modelo não encontrado',
       404
     )
   }
 
-  await deleteModeloModel(id)
+  await deleteModeloRepository(
+    id
+  )
 }

@@ -3,15 +3,14 @@ import type {
   Response,
 } from 'express'
 
-import {
-  ZodError,
-} from 'zod'
+import { ZodError } from 'zod'
 
 import {
   CategoriaService,
   ConflictError,
   NotFoundError,
   ValidationError,
+  CATEGORIA_MESSAGES,
 } from './categoria.service.js'
 
 import {
@@ -21,243 +20,203 @@ import {
   updateCategoriaSchema,
 } from './categoria.schema.js'
 
-export class CategoriaController {
-  private readonly service:
-    CategoriaService
+const service =
+  new CategoriaService()
 
-  constructor(
-    service =
-      new CategoriaService()
-  ) {
-    this.service =
-      service
+export class CategoriaController {
+  async create(
+    req: Request,
+    res: Response
+  ): Promise<void> {
+    try {
+      const data =
+        createCategoriaSchema.parse(
+          req.body
+        )
+
+      const categoria =
+        await service.create(data)
+
+      res.status(201).json({
+        success: true,
+        data: categoria,
+      })
+    } catch (error) {
+      this.handleError(
+        error,
+        res
+      )
+    }
   }
 
-  public listar =
-    async (
-      req: Request,
-      res: Response
-    ): Promise<void> => {
-      try {
-        const filters =
-          listCategoriaSchema.parse(
-            req.query
-          )
-
-        const categorias =
-          await this.service.listar(
-            filters
-          )
-
-        res.status(200).json({
-          success: true,
-          data: categorias,
-        })
-      } catch (error) {
-        this.handleError(
-          res,
-          error
+  async findAll(
+    req: Request,
+    res: Response
+  ): Promise<void> {
+    try {
+      const filters =
+        listCategoriaSchema.parse(
+          req.query
         )
-      }
-    }
 
-  public buscarPorId =
-    async (
-      req: Request,
-      res: Response
-    ): Promise<void> => {
-      try {
-        const {
+      const categorias =
+        await service.findAll(
+          filters
+        )
+
+      res.status(200).json({
+        success: true,
+        data: categorias,
+      })
+    } catch (error) {
+      this.handleError(
+        error,
+        res
+      )
+    }
+  }
+
+  async findById(
+    req: Request,
+    res: Response
+  ): Promise<void> {
+    try {
+      const { id } =
+        categoriaIdSchema.parse(
+          req.params
+        )
+
+      const categoria =
+        await service.findById(
+          id
+        )
+
+      res.status(200).json({
+        success: true,
+        data: categoria,
+      })
+    } catch (error) {
+      this.handleError(
+        error,
+        res
+      )
+    }
+  }
+
+  async update(
+    req: Request,
+    res: Response
+  ): Promise<void> {
+    try {
+      const { id } =
+        categoriaIdSchema.parse(
+          req.params
+        )
+
+      const data =
+        updateCategoriaSchema.parse(
+          req.body
+        )
+
+      const categoria =
+        await service.update(
           id,
-        } =
-          categoriaIdSchema.parse(
-            req.params
-          )
-
-        const categoria =
-          await this.service.buscarPorId(
-            id
-          )
-
-        res.status(200).json({
-          success: true,
-          data: categoria,
-        })
-      } catch (error) {
-        this.handleError(
-          res,
-          error
+          data
         )
-      }
+
+      res.status(200).json({
+        success: true,
+        data: categoria,
+      })
+    } catch (error) {
+      this.handleError(
+        error,
+        res
+      )
     }
+  }
 
-  public criar =
-    async (
-      req: Request,
-      res: Response
-    ): Promise<void> => {
-      try {
-        const data =
-          createCategoriaSchema.parse(
-            req.body
-          )
-
-        const categoria =
-          await this.service.criar(
-            data
-          )
-
-        res.status(201).json({
-          success: true,
-          data: categoria,
-        })
-      } catch (error) {
-        this.handleError(
-          res,
-          error
+  async delete(
+    req: Request,
+    res: Response
+  ): Promise<void> {
+    try {
+      const { id } =
+        categoriaIdSchema.parse(
+          req.params
         )
-      }
+
+      await service.delete(id)
+
+      res.status(200).json({
+        success: true,
+
+        data: {
+          message:
+            CATEGORIA_MESSAGES.DELETED,
+        },
+      })
+    } catch (error) {
+      this.handleError(
+        error,
+        res
+      )
     }
-
-  public atualizar =
-    async (
-      req: Request,
-      res: Response
-    ): Promise<void> => {
-      try {
-        const {
-          id,
-        } =
-          categoriaIdSchema.parse(
-            req.params
-          )
-
-        const data =
-          updateCategoriaSchema.parse(
-            req.body
-          )
-
-        const categoria =
-          await this.service.atualizar(
-            id,
-            data
-          )
-
-        res.status(200).json({
-          success: true,
-          data: categoria,
-        })
-      } catch (error) {
-        this.handleError(
-          res,
-          error
-        )
-      }
-    }
-
-  public excluir =
-    async (
-      req: Request,
-      res: Response
-    ): Promise<void> => {
-      try {
-        const {
-          id,
-        } =
-          categoriaIdSchema.parse(
-            req.params
-          )
-
-        const result =
-          await this.service.excluir(
-            id
-          )
-
-        res.status(200).json({
-          success: true,
-          data: result,
-        })
-      } catch (error) {
-        this.handleError(
-          res,
-          error
-        )
-      }
-    }
+  }
 
   private handleError(
-    res: Response,
-    error: unknown
+    error: unknown,
+    res: Response
   ): void {
     if (
       error instanceof ZodError
     ) {
       res.status(400).json({
         success: false,
-
         error:
           'Dados inválidos',
 
-        data: {
-          issues:
-            error.issues.map(
-              (issue) => ({
-                field:
-                  issue.path.join(
-                    '.'
-                  ),
-
-                message:
-                  issue.message,
-              })
-            ),
-        },
+        data: error.issues,
       })
 
       return
     }
 
     if (
-      error instanceof
-      ValidationError
+      error instanceof ValidationError
     ) {
       res.status(400).json({
         success: false,
-        error:
-          error.message,
+        error: error.message,
       })
 
       return
     }
 
     if (
-      error instanceof
-      NotFoundError
+      error instanceof NotFoundError
     ) {
       res.status(404).json({
         success: false,
-        error:
-          error.message,
+        error: error.message,
       })
 
       return
     }
 
     if (
-      error instanceof
-      ConflictError
+      error instanceof ConflictError
     ) {
       res.status(409).json({
         success: false,
-        error:
-          error.message,
+        error: error.message,
       })
 
       return
     }
 
     console.error(
-      '[CategoriaController] Erro inesperado:',
+      '[CategoriaController]',
       error
     )
 

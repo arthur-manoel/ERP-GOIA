@@ -3,11 +3,11 @@ import {
 } from 'express'
 
 import {
-  authenticate
+  authenticate,
 } from '../../middlewares/authenticate.js'
 
 import {
-  requireAdmin
+  requireAdmin,
 } from '../../middlewares/requireAdmin.js'
 
 import {

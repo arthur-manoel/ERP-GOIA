@@ -1,11 +1,11 @@
 import {
-  create as createCategoriaRepository,
-  findAll,
-  findById,
-  findByNome,
-  softDelete,
-  update as updateCategoriaRepository,
-  type Categoria,
+  createCategoria as createCategoriaRepository,
+  findAllCategorias,
+  findCategoriaById,
+  findCategoriaByNome,
+  softDeleteCategoria,
+  updateCategoria as updateCategoriaRepository,
+  type CategoriaRow,
   type UpdateCategoriaData,
 } from './categoria.repository.js'
 
@@ -15,158 +15,73 @@ import type {
   UpdateCategoriaInput,
 } from './categoria.schema.js'
 
-export const CATEGORIA_MESSAGES =
-  {
-    NOT_FOUND:
-      'Categoria não encontrada',
+export const CATEGORIA_MESSAGES = {
+  NOT_FOUND:
+    'Categoria não encontrada',
 
-    NAME_ALREADY_EXISTS:
-      'Já existe uma categoria cadastrada com este nome',
+  NAME_ALREADY_EXISTS:
+    'Já existe uma categoria com este nome nesta empresa',
 
-    INVALID_DATA:
-      'Dados inválidos',
+  CREATED:
+    'Categoria criada com sucesso',
 
-    EMPTY_UPDATE:
-      'Informe pelo menos um campo para atualização',
+  UPDATED:
+    'Categoria atualizada com sucesso',
 
-    CREATED:
-      'Categoria criada com sucesso',
+  DELETED:
+    'Categoria desativada com sucesso',
+} as const
 
-    UPDATED:
-      'Categoria atualizada com sucesso',
-
-    DELETED:
-      'Categoria desativada com sucesso',
-  } as const
-
-export class NotFoundError
-  extends Error {
-  public readonly statusCode =
-    404
-
-  constructor(
-    message =
-      CATEGORIA_MESSAGES.NOT_FOUND
-  ) {
+export class NotFoundError extends Error {
+  constructor(message: string) {
     super(message)
-
-    this.name =
-      'NotFoundError'
+    this.name = 'NotFoundError'
   }
 }
 
-export class ConflictError
-  extends Error {
-  public readonly statusCode =
-    409
-
-  constructor(
-    message =
-      CATEGORIA_MESSAGES.NAME_ALREADY_EXISTS
-  ) {
+export class ConflictError extends Error {
+  constructor(message: string) {
     super(message)
-
-    this.name =
-      'ConflictError'
+    this.name = 'ConflictError'
   }
 }
 
-export class ValidationError
-  extends Error {
-  public readonly statusCode =
-    400
-
-  constructor(
-    message: string =
-      CATEGORIA_MESSAGES.INVALID_DATA
-  ) {
+export class ValidationError extends Error {
+  constructor(message: string) {
     super(message)
-
-    this.name =
-      'ValidationError'
+    this.name = 'ValidationError'
   }
-}
-
-interface DatabaseError
-  extends Error {
-  code?: string
-  errno?: number
-}
-
-function isDuplicateEntryError(
-  error: unknown
-): boolean {
-  if (
-    typeof error !==
-      'object' ||
-    error === null
-  ) {
-    return false
-  }
-
-  const databaseError =
-    error as DatabaseError
-
-  return (
-    databaseError.code ===
-      'ER_DUP_ENTRY' ||
-    databaseError.errno ===
-      1062
-  )
 }
 
 export class CategoriaService {
-  public async criar(
+  async create(
     data: CreateCategoriaInput
-  ): Promise<Categoria> {
-    const nome =
-      data.nome.trim()
-
-    const categoriaExistente =
-      await findByNome(nome)
-
-    if (
-      categoriaExistente
-    ) {
-      throw new ConflictError()
-    }
-
-    try {
-      return await createCategoriaRepository(
-        {
-          nome,
-
-          descricao:
-            this.normalizeDescricao(
-              data.descricao
-            ),
-
-          ativo:
-            data.ativo ?? true,
-        }
+  ): Promise<CategoriaRow> {
+    const existing =
+      await findCategoriaByNome(
+        data.nome,
+        data.id_empresa
       )
-    } catch (error) {
-      if (
-        isDuplicateEntryError(
-          error
-        )
-      ) {
-        throw new ConflictError()
-      }
 
-      throw error
+    if (existing) {
+      throw new ConflictError(
+        CATEGORIA_MESSAGES.NAME_ALREADY_EXISTS
+      )
     }
+
+    return createCategoriaRepository({
+      id_empresa: data.id_empresa,
+      nome: data.nome,
+      descricao:
+        data.descricao ?? null,
+      status:
+        data.status ?? 'ATIVO',
+    })
   }
 
-  public async listar(
+  async findAll(
     filters: ListCategoriaInput
-  ): Promise<{
-    rows: Categoria[]
-    count: number
-    page: number
-    limit: number
-    totalPages: number
-  }> {
+  ) {
     const page =
       filters.page ?? 1
 
@@ -174,15 +89,16 @@ export class CategoriaService {
       filters.limit ?? 20
 
     const result =
-      await findAll(
+      await findAllCategorias(
         {
-          q:
-            filters.q?.trim() ||
-            undefined,
+          id_empresa:
+            filters.id_empresa,
 
-          includeInativos:
-            filters.include_inativos ??
-            false,
+          q:
+            filters.q,
+
+          include_inativos:
+            filters.include_inativos,
         },
         {
           page,
@@ -195,164 +111,118 @@ export class CategoriaService {
       count: result.count,
       page,
       limit,
-
-      totalPages:
-        result.count === 0
-          ? 0
-          : Math.ceil(
-              result.count /
-                limit
-            ),
+      totalPages: Math.ceil(
+        result.count / limit
+      ),
     }
   }
 
-  public async buscarPorId(
+  async findById(
     id: number
-  ): Promise<Categoria> {
+  ): Promise<CategoriaRow> {
     const categoria =
-      await findById(id)
+      await findCategoriaById(id)
 
     if (!categoria) {
-      throw new NotFoundError()
+      throw new NotFoundError(
+        CATEGORIA_MESSAGES.NOT_FOUND
+      )
     }
 
     return categoria
   }
 
-  public async atualizar(
+  async update(
     id: number,
     data: UpdateCategoriaInput
-  ): Promise<Categoria> {
-    if (
-      Object.keys(data).length ===
-      0
-    ) {
-      throw new ValidationError(
-        CATEGORIA_MESSAGES.EMPTY_UPDATE
+  ): Promise<CategoriaRow> {
+    const categoriaAtual =
+      await findCategoriaById(id)
+
+    if (!categoriaAtual) {
+      throw new NotFoundError(
+        CATEGORIA_MESSAGES.NOT_FOUND
       )
     }
 
-    const categoriaAtual =
-      await findById(id)
+    const idEmpresa =
+      data.id_empresa ??
+      categoriaAtual.id_empresa
 
-    if (!categoriaAtual) {
-      throw new NotFoundError()
+    const nome =
+      data.nome ??
+      categoriaAtual.nome
+
+    if (
+      data.nome !== undefined ||
+      data.id_empresa !== undefined
+    ) {
+      const existing =
+        await findCategoriaByNome(
+          nome,
+          idEmpresa
+        )
+
+      if (
+        existing &&
+        existing.id !== id
+      ) {
+        throw new ConflictError(
+          CATEGORIA_MESSAGES.NAME_ALREADY_EXISTS
+        )
+      }
     }
 
-    const updateData:
-      UpdateCategoriaData =
+    const updateData: UpdateCategoriaData =
       {}
 
-    if (
-      data.nome !== undefined
-    ) {
-      const nome =
-        data.nome.trim()
+    if (data.id_empresa !== undefined) {
+      updateData.id_empresa =
+        data.id_empresa
+    }
 
-      const categoriaComMesmoNome =
-        await findByNome(nome)
-
-      if (
-        categoriaComMesmoNome &&
-        categoriaComMesmoNome.id !==
-          id
-      ) {
-        throw new ConflictError()
-      }
-
+    if (data.nome !== undefined) {
       updateData.nome =
-        nome
+        data.nome
     }
 
-    if (
-      data.descricao !==
-      undefined
-    ) {
+    if (data.descricao !== undefined) {
       updateData.descricao =
-        this.normalizeDescricao(
-          data.descricao
-        )
+        data.descricao
     }
 
-    if (
-      data.ativo !== undefined
-    ) {
-      updateData.ativo =
-        data.ativo
+    if (data.status !== undefined) {
+      updateData.status =
+        data.status
     }
 
-    try {
-      const categoria =
-        await updateCategoriaRepository(
-          id,
-          updateData
-        )
+    const updated =
+      await updateCategoriaRepository(
+        id,
+        updateData
+      )
 
-      if (!categoria) {
-        throw new NotFoundError()
-      }
-
-      return categoria
-    } catch (error) {
-      if (
-        isDuplicateEntryError(
-          error
-        )
-      ) {
-        throw new ConflictError()
-      }
-
-      throw error
+    if (!updated) {
+      throw new NotFoundError(
+        CATEGORIA_MESSAGES.NOT_FOUND
+      )
     }
+
+    return updated
   }
 
-  public async excluir(
+  async delete(
     id: number
-  ): Promise<{
-    message: string
-  }> {
+  ): Promise<void> {
     const categoria =
-      await findById(id)
+      await findCategoriaById(id)
 
     if (!categoria) {
-      throw new NotFoundError()
+      throw new NotFoundError(
+        CATEGORIA_MESSAGES.NOT_FOUND
+      )
     }
 
-    /*
-     * A exclusão é idempotente.
-     * Se a categoria já estiver
-     * inativa, continua sendo
-     * considerada excluída.
-     */
-    if (categoria.ativo) {
-      await softDelete(id)
-    }
-
-    return {
-      message:
-        CATEGORIA_MESSAGES.DELETED,
-    }
-  }
-
-  private normalizeDescricao(
-    descricao:
-      | string
-      | null
-      | undefined
-  ): string | null {
-    if (
-      descricao === null ||
-      descricao === undefined
-    ) {
-      return null
-    }
-
-    const descricaoNormalizada =
-      descricao.trim()
-
-    return (
-      descricaoNormalizada ||
-      null
-    )
+    await softDeleteCategoria(id)
   }
 }
