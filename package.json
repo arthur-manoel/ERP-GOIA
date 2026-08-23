@@ -3,6 +3,7 @@
   "scripts": {
     "dev": "tsx --watch src/server.ts",
     "build": "tsc",
+    "test": "npm run build && node --test dist/modules/consumoPlanejado/consumoPlanejado.service.test.js",
     "start": "node src/server.ts"
   },
   "dependencies": {

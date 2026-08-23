@@ -11,6 +11,7 @@ import cargosRouter from './modules/cargos/cargos.router.js'
 import clientesRouter from './modules/clientes/clientes.router.js'
 import setoresRouter from './modules/setores/setores.router.js'
 import usuariosRouter from './modules/usuarios/usuarios.router.js'
+import consumoPlanejadoRouter from './modules/consumoPlanejado/consumoPlanejado.router.js'
 
 const app = express()
 
@@ -28,6 +29,7 @@ app.use('/cargos', cargosRouter)
 app.use('/clientes', clientesRouter)
 app.use('/setores', setoresRouter)
 app.use('/usuarios', usuariosRouter)
+app.use('/ordens-producao/:ordemId/consumo-planejado', consumoPlanejadoRouter)
 
 app.get('/', (req, res) => {
   return res.status(200).json({
@@ -53,12 +55,16 @@ app.use(
 
     console.error(error)
 
+    const statusCode =
+      error.statusCode ?? 500
+
     return res
-      .status(error.statusCode ?? 500)
+      .status(statusCode)
       .json({
         error:
-          error.message ??
-          'Erro interno do servidor',
+          statusCode >= 500
+            ? 'Erro interno do servidor'
+            : error.message,
       })
   }
 )
