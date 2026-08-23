@@ -3,6 +3,7 @@
   "scripts": {
     "dev": "tsx --watch src/server.ts",
     "build": "tsc",
+    "test:venda": "node --import tsx --test src/modules/venda/venda.route.test.ts",
     "start": "node src/server.ts"
   },
   "dependencies": {

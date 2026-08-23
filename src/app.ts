@@ -22,6 +22,15 @@ import ordem_producaoRouter from './modules/ordem_producao/ordem_producao.router
 import necessidade_producaoRouter from './modules/necessidade_producao/necessidade_producao.router.js'
 import ordem_producao_itemRouter from './modules/ordem_producao_item/ordem_producao_item.router.js'
 import locais_estoqueRouter from './modules/locais_estoques/locais_estoque.router.js'
+import consumo_producaoRouter from './modules/consumo_producao/consumo_producao.router.js'
+import vendaRouter from './modules/venda/venda.router.js'
+import item_pedido_compraRouter from './modules/item_pedido_compra/item_pedido_compra.router.js'
+import item_requisicao_compraRouter from './modules/item_requisicao_compra/item_requisicao_compra.router.js'
+import item_vendaRouter from './modules/item_venda/item_venda.router.js'
+import pedido_compraRouter from './modules/pedido_compra/pedido_compra.router.js'
+import requisicao_compraRouter from './modules/requisicao_compra/requisicao_compra.router.js'
+import compra_itensRouter from './modules/compra_itens/compra_itens.router.js'
+import produto_variacoesRouter from './modules/produto_variacoes/produto_variacoes.router.js'
 
 const app = express()
 
@@ -50,6 +59,15 @@ app.use('/ordem_producao', ordem_producaoRouter)
 app.use('/necessidade_producao', necessidade_producaoRouter)
 app.use('/ordem_producao_item', ordem_producao_itemRouter)
 app.use('/locais_estoque', locais_estoqueRouter)
+app.use('/consumo_producao', consumo_producaoRouter)
+app.use('/venda', vendaRouter)
+app.use('/itens_pedido_compra', item_pedido_compraRouter)
+app.use('/itens_requisicao_compra', item_requisicao_compraRouter)
+app.use('/itens_venda', item_vendaRouter)
+app.use('/pedidos_compra', pedido_compraRouter)
+app.use('/requisicoes_compra', requisicao_compraRouter)
+app.use('/compra_itens', compra_itensRouter)
+app.use('/produto_variacoes', produto_variacoesRouter)
 
 
 
