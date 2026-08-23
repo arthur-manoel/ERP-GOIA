@@ -9,29 +9,21 @@ import {
 
 import {
   ConflictError,
+  NecessidadeProducaoService,
   NotFoundError,
-  TipoProdutoService,
   ValidationError,
-} from './tipos_produtos.service.js'
+} from './necessidade_producao.service.js'
 
 import {
-  createTipoProdutoSchema,
-  listTiposProdutosSchema,
-  tipoProdutoIdSchema,
-  updateTipoProdutoSchema,
-} from './tipos_produtos.schema.js'
+  createNecessidadeProducaoSchema,
+  listNecessidadeProducaoSchema,
+  necessidadeProducaoIdSchema,
+  updateNecessidadeProducaoSchema,
+} from './necessidade_producao.schema.js'
 
-export class TipoProdutoController {
-  private readonly service:
-    TipoProdutoService
-
-  constructor(
-    service =
-      new TipoProdutoService()
-  ) {
-    this.service =
-      service
-  }
+export class NecessidadeProducaoController {
+  private readonly service =
+    new NecessidadeProducaoService()
 
   public listar =
     async (
@@ -40,19 +32,21 @@ export class TipoProdutoController {
     ): Promise<void> => {
       try {
         const filters =
-          listTiposProdutosSchema.parse(
-            req.query
-          )
+          listNecessidadeProducaoSchema
+            .parse(
+              req.query
+            )
 
-        const tiposProdutos =
+        const result =
           await this.service.listar(
             filters
           )
 
         res.status(200).json({
           success: true,
+
           data:
-            tiposProdutos,
+            result,
         })
       } catch (error) {
         this.handleError(
@@ -71,19 +65,22 @@ export class TipoProdutoController {
         const {
           id,
         } =
-          tipoProdutoIdSchema.parse(
-            req.params
-          )
+          necessidadeProducaoIdSchema
+            .parse(
+              req.params
+            )
 
-        const tipoProduto =
-          await this.service.buscarPorId(
-            id
-          )
+        const result =
+          await this.service
+            .buscarPorId(
+              id
+            )
 
         res.status(200).json({
           success: true,
+
           data:
-            tipoProduto,
+            result,
         })
       } catch (error) {
         this.handleError(
@@ -100,19 +97,21 @@ export class TipoProdutoController {
     ): Promise<void> => {
       try {
         const data =
-          createTipoProdutoSchema.parse(
-            req.body
-          )
+          createNecessidadeProducaoSchema
+            .parse(
+              req.body
+            )
 
-        const tipoProduto =
+        const result =
           await this.service.criar(
             data
           )
 
         res.status(201).json({
           success: true,
+
           data:
-            tipoProduto,
+            result,
         })
       } catch (error) {
         this.handleError(
@@ -131,25 +130,29 @@ export class TipoProdutoController {
         const {
           id,
         } =
-          tipoProdutoIdSchema.parse(
-            req.params
-          )
+          necessidadeProducaoIdSchema
+            .parse(
+              req.params
+            )
 
         const data =
-          updateTipoProdutoSchema.parse(
-            req.body
-          )
+          updateNecessidadeProducaoSchema
+            .parse(
+              req.body
+            )
 
-        const tipoProduto =
-          await this.service.atualizar(
-            id,
-            data
-          )
+        const result =
+          await this.service
+            .atualizar(
+              id,
+              data
+            )
 
         res.status(200).json({
           success: true,
+
           data:
-            tipoProduto,
+            result,
         })
       } catch (error) {
         this.handleError(
@@ -159,7 +162,7 @@ export class TipoProdutoController {
       }
     }
 
-  public excluir =
+  public cancelar =
     async (
       req: Request,
       res: Response
@@ -168,17 +171,20 @@ export class TipoProdutoController {
         const {
           id,
         } =
-          tipoProdutoIdSchema.parse(
-            req.params
-          )
+          necessidadeProducaoIdSchema
+            .parse(
+              req.params
+            )
 
         const result =
-          await this.service.excluir(
-            id
-          )
+          await this.service
+            .cancelar(
+              id
+            )
 
         res.status(200).json({
           success: true,
+
           data:
             result,
         })
@@ -209,12 +215,10 @@ export class TipoProdutoController {
             error.issues.map(
               (issue) => ({
                 field:
-                  issue.path
-                    .length > 0
-                    ? issue.path.join(
-                        '.'
-                      )
-                    : 'body',
+                  issue.path.join(
+                    '.'
+                  ) ||
+                  'root',
 
                 message:
                   issue.message,
@@ -235,16 +239,6 @@ export class TipoProdutoController {
 
         error:
           error.message,
-
-        ...(error.details !==
-        undefined
-          ? {
-              data: {
-                details:
-                  error.details,
-              },
-            }
-          : {}),
       })
 
       return
@@ -279,7 +273,7 @@ export class TipoProdutoController {
     }
 
     console.error(
-      '[TipoProdutoController] Erro inesperado:',
+      '[NecessidadeProducaoController] Erro inesperado:',
       error
     )
 

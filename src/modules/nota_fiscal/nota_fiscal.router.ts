@@ -3,14 +3,6 @@ import {
 } from 'express'
 
 import {
-  authenticate,
-} from '../../middlewares/authenticate.js'
-
-import {
-  requireAdmin,
-} from '../../middlewares/requireAdmin.js'
-
-import {
   createNotaFiscal,
   deleteNotaFiscal,
   getNotaFiscalById,
@@ -39,7 +31,7 @@ const router =
  */
 router.get(
   '/',
-  authenticate,
+
   listNotasFiscais
 )
 
@@ -50,7 +42,7 @@ router.get(
  */
 router.get(
   '/:id',
-  authenticate,
+
   getNotaFiscalById
 )
 
@@ -61,8 +53,7 @@ router.get(
  */
 router.post(
   '/',
-  authenticate,
-  requireAdmin,
+
   createNotaFiscal
 )
 
@@ -74,8 +65,7 @@ router.post(
  */
 router.put(
   '/:id',
-  authenticate,
-  requireAdmin,
+
   updateNotaFiscal
 )
 
@@ -86,8 +76,7 @@ router.put(
  */
 router.delete(
   '/:id',
-  authenticate,
-  requireAdmin,
+
   deleteNotaFiscal
 )
 

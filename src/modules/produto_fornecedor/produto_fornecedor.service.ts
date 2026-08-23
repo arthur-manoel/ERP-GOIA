@@ -19,7 +19,7 @@ export const PRODUTO_FORNECEDOR_MESSAGES = {
     'Produto fornecedor não encontrado',
 
   ASSOCIATION_ALREADY_EXISTS:
-    'Este produto já está vinculado a este fornecedor nesta empresa',
+    'Este produto já está vinculado a esta empresa',
 
   INVALID_PRICE:
     'O preço da última compra deve ser maior que zero',
@@ -31,7 +31,7 @@ export const PRODUTO_FORNECEDOR_MESSAGES = {
     'A quantidade mínima deve ser um número inteiro maior ou igual a zero',
 
   INVALID_FOREIGN_KEY:
-    'Empresa, produto ou fornecedor informado não existe',
+    'Empresa ou produto informado não existe',
 
   CREATED:
     'Produto fornecedor criado com sucesso',
@@ -43,22 +43,18 @@ export const PRODUTO_FORNECEDOR_MESSAGES = {
     'Produto fornecedor desativado com sucesso',
 } as const
 
-export class NotFoundError
-  extends Error {
+export class NotFoundError extends Error {
   constructor(
     message =
-      PRODUTO_FORNECEDOR_MESSAGES
-        .NOT_FOUND
+      PRODUTO_FORNECEDOR_MESSAGES.NOT_FOUND
   ) {
     super(message)
 
-    this.name =
-      'NotFoundError'
+    this.name = 'NotFoundError'
   }
 }
 
-export class ConflictError
-  extends Error {
+export class ConflictError extends Error {
   constructor(
     message =
       PRODUTO_FORNECEDOR_MESSAGES
@@ -66,25 +62,19 @@ export class ConflictError
   ) {
     super(message)
 
-    this.name =
-      'ConflictError'
+    this.name = 'ConflictError'
   }
 }
 
-export class ValidationError
-  extends Error {
-  constructor(
-    message: string
-  ) {
+export class ValidationError extends Error {
+  constructor(message: string) {
     super(message)
 
-    this.name =
-      'ValidationError'
+    this.name = 'ValidationError'
   }
 }
 
-interface DatabaseError
-  extends Error {
+interface DatabaseError extends Error {
   code?: string
   errno?: number
 }
@@ -93,8 +83,7 @@ function isDuplicateEntryError(
   error: unknown
 ): boolean {
   if (
-    typeof error !==
-      'object' ||
+    typeof error !== 'object' ||
     error === null
   ) {
     return false
@@ -106,8 +95,7 @@ function isDuplicateEntryError(
   return (
     databaseError.code ===
       'ER_DUP_ENTRY' ||
-    databaseError.errno ===
-      1062
+    databaseError.errno === 1062
   )
 }
 
@@ -115,8 +103,7 @@ function isForeignKeyError(
   error: unknown
 ): boolean {
   if (
-    typeof error !==
-      'object' ||
+    typeof error !== 'object' ||
     error === null
   ) {
     return false
@@ -128,76 +115,71 @@ function isForeignKeyError(
   return (
     databaseError.code ===
       'ER_NO_REFERENCED_ROW_2' ||
-    databaseError.errno ===
-      1452
+    databaseError.errno === 1452
   )
 }
 
 export class ProdutoFornecedorService {
   public async criar(
-    data:
-      CreateProdutoFornecedorInput
+    data: CreateProdutoFornecedorInput
   ): Promise<ProdutoFornecedor> {
-    this.validarValores(
-      data
-    )
+    this.validarValores(data)
 
     const associacaoExistente =
       await findByAssociacao(
         data.id_empresa,
-        data.id_produto,
-        data.id_fornecedor
+        data.id_produto
       )
 
-    if (
-      associacaoExistente
-    ) {
+    if (associacaoExistente) {
       throw new ConflictError()
     }
 
     try {
-      return await createProdutoFornecedorRepository(
-        {
-          id_empresa:
-            data.id_empresa,
+      return await createProdutoFornecedorRepository({
+        id_empresa:
+          data.id_empresa,
 
-          id_produto:
-            data.id_produto,
+        id_produto:
+          data.id_produto,
 
-          id_fornecedor:
-            data.id_fornecedor,
+        codigo_produto_fornecedor:
+          data.codigo_produto_fornecedor ??
+          null,
 
-          codigo_produto_fornecedor:
-            data.codigo_produto_fornecedor,
+        preco_ultima_compra:
+          data.preco_ultima_compra ??
+          null,
 
-          preco_ultima_compra:
-            data.preco_ultima_compra,
+        prazo_entrega_dias:
+          data.prazo_entrega_dias ??
+          null,
 
-          prazo_entrega_dias:
-            data.prazo_entrega_dias,
+        quantidade_minima:
+          data.quantidade_minima ??
+          null,
 
-          quantidade_minima:
-            data.quantidade_minima,
+        fornecedor_principal:
+          data.fornecedor_principal ??
+          false,
 
-          fornecedor_principal:
-            data.fornecedor_principal ??
-            false,
-
-          status:
-            data.status,
-        }
-      )
+        status:
+          data.status,
+      })
     } catch (error) {
-      this.handleDatabaseError(
-        error
-      )
+      this.handleDatabaseError(error)
     }
   }
 
   public async listar(
-    filters:
-      ListProdutoFornecedorInput
-  ) {
+    filters: ListProdutoFornecedorInput
+  ): Promise<{
+    rows: ProdutoFornecedor[]
+    count: number
+    page: number
+    limit: number
+    totalPages: number
+  }> {
     const page =
       filters.page ?? 1
 
@@ -212,9 +194,6 @@ export class ProdutoFornecedorService {
 
           idProduto:
             filters.id_produto,
-
-          idFornecedor:
-            filters.id_fornecedor,
 
           includeInativos:
             filters.include_inativos ??
@@ -262,12 +241,9 @@ export class ProdutoFornecedorService {
 
   public async atualizar(
     id: number,
-    data:
-      UpdateProdutoFornecedorInput
+    data: UpdateProdutoFornecedorInput
   ): Promise<ProdutoFornecedor> {
-    this.validarValores(
-      data
-    )
+    this.validarValores(data)
 
     const atual =
       await findById(id)
@@ -284,44 +260,29 @@ export class ProdutoFornecedorService {
       data.id_produto ??
       atual.id_produto
 
-    const idFornecedorFinal =
-      data.id_fornecedor ??
-      atual.id_fornecedor
-
     const empresaAlterada =
-      data.id_empresa !==
-        undefined &&
+      data.id_empresa !== undefined &&
       data.id_empresa !==
         atual.id_empresa
 
     const produtoAlterado =
-      data.id_produto !==
-        undefined &&
+      data.id_produto !== undefined &&
       data.id_produto !==
         atual.id_produto
 
-    const fornecedorAlterado =
-      data.id_fornecedor !==
-        undefined &&
-      data.id_fornecedor !==
-        atual.id_fornecedor
-
     if (
       empresaAlterada ||
-      produtoAlterado ||
-      fornecedorAlterado
+      produtoAlterado
     ) {
       const associacaoExistente =
         await findByAssociacao(
           idEmpresaFinal,
-          idProdutoFinal,
-          idFornecedorFinal
+          idProdutoFinal
         )
 
       if (
         associacaoExistente &&
-        associacaoExistente.id !==
-          id
+        associacaoExistente.id !== id
       ) {
         throw new ConflictError()
       }
@@ -342,14 +303,16 @@ export class ProdutoFornecedorService {
     } catch (error) {
       if (
         error instanceof
-        NotFoundError
+          NotFoundError ||
+        error instanceof
+          ConflictError ||
+        error instanceof
+          ValidationError
       ) {
         throw error
       }
 
-      this.handleDatabaseError(
-        error
-      )
+      this.handleDatabaseError(error)
     }
   }
 
@@ -381,16 +344,20 @@ export class ProdutoFornecedorService {
 
   private validarValores(
     data: {
-      preco_ultima_compra?: number
-      prazo_entrega_dias?: number
-      quantidade_minima?: number
+      preco_ultima_compra?:
+        number
+
+      prazo_entrega_dias?:
+        number
+
+      quantidade_minima?:
+        number
     }
   ): void {
     if (
       data.preco_ultima_compra !==
         undefined &&
-      data.preco_ultima_compra <=
-        0
+      data.preco_ultima_compra <= 0
     ) {
       throw new ValidationError(
         PRODUTO_FORNECEDOR_MESSAGES
@@ -405,8 +372,7 @@ export class ProdutoFornecedorService {
         !Number.isInteger(
           data.prazo_entrega_dias
         ) ||
-        data.prazo_entrega_dias <
-          0
+        data.prazo_entrega_dias < 0
       )
     ) {
       throw new ValidationError(
@@ -422,8 +388,7 @@ export class ProdutoFornecedorService {
         !Number.isInteger(
           data.quantidade_minima
         ) ||
-        data.quantidade_minima <
-          0
+        data.quantidade_minima < 0
       )
     ) {
       throw new ValidationError(
@@ -437,17 +402,13 @@ export class ProdutoFornecedorService {
     error: unknown
   ): never {
     if (
-      isDuplicateEntryError(
-        error
-      )
+      isDuplicateEntryError(error)
     ) {
       throw new ConflictError()
     }
 
     if (
-      isForeignKeyError(
-        error
-      )
+      isForeignKeyError(error)
     ) {
       throw new ValidationError(
         PRODUTO_FORNECEDOR_MESSAGES
@@ -458,3 +419,5 @@ export class ProdutoFornecedorService {
     throw error
   }
 }
+
+export default ProdutoFornecedorService

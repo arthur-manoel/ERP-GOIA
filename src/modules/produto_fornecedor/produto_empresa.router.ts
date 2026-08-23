@@ -15,15 +15,13 @@ const controller =
 /**
  * GET /produto_fornecedor
  *
- * Lista os vínculos entre
- * produtos e fornecedores.
+ * Lista produtos fornecedores.
  *
  * Query params:
  * - page
  * - limit
  * - id_empresa
  * - id_produto
- * - id_fornecedor
  * - include_inativos
  */
 router.get(
@@ -34,7 +32,8 @@ router.get(
 /**
  * GET /produto_fornecedor/:id
  *
- * Busca um vínculo pelo ID.
+ * Busca um produto fornecedor
+ * pelo ID.
  */
 router.get(
   '/:id',
@@ -44,8 +43,7 @@ router.get(
 /**
  * POST /produto_fornecedor
  *
- * Cria um vínculo entre
- * produto e fornecedor.
+ * Cria um produto fornecedor.
  */
 router.post(
   '/',
@@ -56,7 +54,7 @@ router.post(
  * PUT /produto_fornecedor/:id
  *
  * Atualiza parcialmente
- * um vínculo existente.
+ * um produto fornecedor.
  */
 router.put(
   '/:id',

@@ -192,8 +192,8 @@ export async function createNotaFiscal(
         id_empresa:
           data.id_empresa,
 
-        id_fronecedor:
-          data.id_fronecedor,
+        id_fornecedor:
+          data.id_fornecedor,
 
         id_pedido_compra:
           data.id_pedido_compra ??
@@ -273,8 +273,8 @@ export async function listNotasFiscais(
         idEmpresa:
           filters.id_empresa,
 
-        idFronecedor:
-          filters.id_fronecedor,
+        idFornecedor:
+          filters.id_fornecedor,
 
         idPedidoCompra:
           filters.id_pedido_compra,
@@ -344,8 +344,7 @@ export async function updateNotaFiscal(
   }
 
   const updateData:
-    UpdateNotaFiscalData =
-    {}
+    UpdateNotaFiscalData = {}
 
   if (
     data.numero !== undefined
@@ -378,11 +377,11 @@ export async function updateNotaFiscal(
   }
 
   if (
-    data.id_fronecedor !==
+    data.id_fornecedor !==
     undefined
   ) {
-    updateData.id_fronecedor =
-      data.id_fronecedor
+    updateData.id_fornecedor =
+      data.id_fornecedor
   }
 
   if (

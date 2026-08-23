@@ -7,51 +7,29 @@ import db from '../../config/database.js'
 
 export interface ProdutoEmpresa {
   id: number
-
   id_empresa: number
-
   id_produto: number
-
   codigo_interno: string
-
   preco_venda: number
-
   custo_atual: number
-
   valor_estoque_atual: number
-
   estoque_minimo: number
-
   estoque_maximo: number
-
-  status:
-    | 'ATIVO'
-    | 'INATIVO'
+  status: 'ATIVO' | 'INATIVO'
 }
 
 export interface ProdutoEmpresaRow
   extends RowDataPacket {
   id: number
-
   id_empresa: number
-
   id_produto: number
-
   codigo_interno: string
-
   preco_venda: string
-
   custo_atual: string
-
   valor_estoque_atual: string
-
   estoque_minimo: number
-
   estoque_maximo: number
-
-  status:
-    | 'ATIVO'
-    | 'INATIVO'
+  status: 'ATIVO' | 'INATIVO'
 }
 
 interface CountRow
@@ -61,65 +39,38 @@ interface CountRow
 
 export interface CreateProdutoEmpresaData {
   id_empresa: number
-
   id_produto: number
-
   codigo_interno: string
-
   preco_venda: number
-
   custo_atual: number
-
   valor_estoque_atual: number
-
   estoque_minimo: number
-
   estoque_maximo: number
-
-  status?:
-    | 'ATIVO'
-    | 'INATIVO'
+  status?: 'ATIVO' | 'INATIVO'
 }
 
 export interface UpdateProdutoEmpresaData {
   id_empresa?: number
-
   id_produto?: number
-
   codigo_interno?: string
-
   preco_venda?: number
-
   custo_atual?: number
-
   valor_estoque_atual?: number
-
   estoque_minimo?: number
-
   estoque_maximo?: number
-
-  status?:
-    | 'ATIVO'
-    | 'INATIVO'
+  status?: 'ATIVO' | 'INATIVO'
 }
 
 export interface ProdutoEmpresaFilters {
   idEmpresa?: number
-
   idProduto?: number
-
   codigoInterno?: string
-
-  status?:
-    | 'ATIVO'
-    | 'INATIVO'
-
+  status?: 'ATIVO' | 'INATIVO'
   includeInativos?: boolean
 }
 
 export interface ProdutoEmpresaPagination {
   page: number
-
   limit: number
 }
 
@@ -127,8 +78,7 @@ function mapProdutoEmpresa(
   row: ProdutoEmpresaRow
 ): ProdutoEmpresa {
   return {
-    id:
-      row.id,
+    id: row.id,
 
     id_empresa:
       row.id_empresa,
@@ -140,14 +90,10 @@ function mapProdutoEmpresa(
       row.codigo_interno,
 
     preco_venda:
-      Number(
-        row.preco_venda
-      ),
+      Number(row.preco_venda),
 
     custo_atual:
-      Number(
-        row.custo_atual
-      ),
+      Number(row.custo_atual),
 
     valor_estoque_atual:
       Number(
@@ -166,8 +112,7 @@ function mapProdutoEmpresa(
 }
 
 export async function create(
-  data:
-    CreateProdutoEmpresaData
+  data: CreateProdutoEmpresaData
 ): Promise<ProdutoEmpresa> {
   const [result] =
     await db.execute<ResultSetHeader>(
@@ -194,8 +139,7 @@ export async function create(
         data.valor_estoque_atual,
         data.estoque_minimo,
         data.estoque_maximo,
-        data.status ??
-          'ATIVO',
+        data.status ?? 'ATIVO',
       ]
     )
 
@@ -214,25 +158,22 @@ export async function create(
 }
 
 export async function findAll(
-  filters:
-    ProdutoEmpresaFilters,
-  pagination:
-    ProdutoEmpresaPagination
+  filters: ProdutoEmpresaFilters,
+  pagination: ProdutoEmpresaPagination
 ): Promise<{
   rows: ProdutoEmpresa[]
   count: number
 }> {
-  const conditions: string[] =
-    []
+  const conditions: string[] = []
 
   const params: Array<
-    string |
-    number
+    string | number
   > = []
 
-  if (
-    filters.status
-  ) {
+  /*
+   * FILTRO DE STATUS
+   */
+  if (filters.status) {
     conditions.push(
       'status = ?'
     )
@@ -248,32 +189,39 @@ export async function findAll(
     )
   }
 
+  /*
+   * FILTRO DE EMPRESA
+   */
   if (
-    filters.idEmpresa !==
-    undefined
+    filters.idEmpresa !== undefined
   ) {
     conditions.push(
       'id_empresa = ?'
     )
 
     params.push(
-      filters.idEmpresa
+      Number(filters.idEmpresa)
     )
   }
 
+  /*
+   * FILTRO DE PRODUTO
+   */
   if (
-    filters.idProduto !==
-    undefined
+    filters.idProduto !== undefined
   ) {
     conditions.push(
       'id_produto = ?'
     )
 
     params.push(
-      filters.idProduto
+      Number(filters.idProduto)
     )
   }
 
+  /*
+   * FILTRO DE CÓDIGO INTERNO
+   */
   if (
     filters.codigoInterno
   ) {
@@ -293,58 +241,69 @@ export async function findAll(
         )}`
       : ''
 
+  /*
+   * PAGINAÇÃO
+   *
+   * Não usamos ? em LIMIT/OFFSET.
+   * Isso evita o ER_WRONG_ARGUMENTS (1210).
+   */
+  const page = Math.max(
+    1,
+    Number(pagination.page) || 1
+  )
+
+  const limit = Math.min(
+    100,
+    Math.max(
+      1,
+      Number(pagination.limit) || 20
+    )
+  )
+
   const offset =
-    (
-      pagination.page -
-      1
-    ) *
-    pagination.limit
+    (page - 1) * limit
 
-  const [
-    [rows],
-    [countRows],
-  ] =
-    await Promise.all([
-      db.execute<
-        ProdutoEmpresaRow[]
-      >(
-        `
-          SELECT
-            id,
-            id_empresa,
-            id_produto,
-            codigo_interno,
-            preco_venda,
-            custo_atual,
-            valor_estoque_atual,
-            estoque_minimo,
-            estoque_maximo,
-            status
-          FROM produto_empresa
-          ${whereClause}
-          ORDER BY id DESC
-          LIMIT ?
-          OFFSET ?
-        `,
-        [
-          ...params,
-          pagination.limit,
-          offset,
-        ]
-      ),
+  /*
+   * BUSCA DOS REGISTROS
+   */
+  const [rows] =
+    await db.execute<
+      ProdutoEmpresaRow[]
+    >(
+      `
+        SELECT
+          id,
+          id_empresa,
+          id_produto,
+          codigo_interno,
+          preco_venda,
+          custo_atual,
+          valor_estoque_atual,
+          estoque_minimo,
+          estoque_maximo,
+          status
+        FROM produto_empresa
+        ${whereClause}
+        ORDER BY id DESC
+        LIMIT ${limit}
+        OFFSET ${offset}
+      `,
+      params
+    )
 
-      db.execute<
-        CountRow[]
-      >(
-        `
-          SELECT
-            COUNT(*) AS total
-          FROM produto_empresa
-          ${whereClause}
-        `,
-        params
-      ),
-    ])
+  /*
+   * CONTAGEM
+   */
+  const [countRows] =
+    await db.execute<CountRow[]>(
+      `
+        SELECT
+          COUNT(*) AS total
+        FROM produto_empresa
+        ${whereClause}
+      `,
+      params
+    )
 
   return {
     rows:
@@ -353,8 +312,7 @@ export async function findAll(
       ),
 
     count:
-      countRows[0]
-        ?.total ?? 0,
+      countRows[0]?.total ?? 0,
   }
 }
 
@@ -383,30 +341,24 @@ export async function findById(
         WHERE id = ?
         LIMIT 1
       `,
-      [
-        id,
-      ]
+      [id]
     )
 
-  const row =
-    rows[0]
+  const row = rows[0]
 
   if (!row) {
     return null
   }
 
-  return mapProdutoEmpresa(
-    row
-  )
+  return mapProdutoEmpresa(row)
 }
 
-export async function
-  findByProdutoEmpresa(
-    idEmpresa: number,
-    idProduto: number
-  ): Promise<
-    ProdutoEmpresa | null
-  > {
+export async function findByProdutoEmpresa(
+  idEmpresa: number,
+  idProduto: number
+): Promise<
+  ProdutoEmpresa | null
+> {
   const [rows] =
     await db.execute<
       ProdutoEmpresaRow[]
@@ -434,25 +386,21 @@ export async function
       ]
     )
 
-  const row =
-    rows[0]
+  const row = rows[0]
 
   if (!row) {
     return null
   }
 
-  return mapProdutoEmpresa(
-    row
-  )
+  return mapProdutoEmpresa(row)
 }
 
-export async function
-  findByCodigoInterno(
-    idEmpresa: number,
-    codigoInterno: string
-  ): Promise<
-    ProdutoEmpresa | null
-  > {
+export async function findByCodigoInterno(
+  idEmpresa: number,
+  codigoInterno: string
+): Promise<
+  ProdutoEmpresa | null
+> {
   const [rows] =
     await db.execute<
       ProdutoEmpresaRow[]
@@ -480,36 +428,29 @@ export async function
       ]
     )
 
-  const row =
-    rows[0]
+  const row = rows[0]
 
   if (!row) {
     return null
   }
 
-  return mapProdutoEmpresa(
-    row
-  )
+  return mapProdutoEmpresa(row)
 }
 
 export async function update(
   id: number,
-  data:
-    UpdateProdutoEmpresaData
+  data: UpdateProdutoEmpresaData
 ): Promise<
   ProdutoEmpresa | null
 > {
-  const fields: string[] =
-    []
+  const fields: string[] = []
 
   const values: Array<
-    string |
-    number
+    string | number
   > = []
 
   if (
-    data.id_empresa !==
-    undefined
+    data.id_empresa !== undefined
   ) {
     fields.push(
       'id_empresa = ?'
@@ -521,8 +462,7 @@ export async function update(
   }
 
   if (
-    data.id_produto !==
-    undefined
+    data.id_produto !== undefined
   ) {
     fields.push(
       'id_produto = ?'
@@ -547,8 +487,7 @@ export async function update(
   }
 
   if (
-    data.preco_venda !==
-    undefined
+    data.preco_venda !== undefined
   ) {
     fields.push(
       'preco_venda = ?'
@@ -560,8 +499,7 @@ export async function update(
   }
 
   if (
-    data.custo_atual !==
-    undefined
+    data.custo_atual !== undefined
   ) {
     fields.push(
       'custo_atual = ?'
@@ -612,8 +550,7 @@ export async function update(
   }
 
   if (
-    data.status !==
-    undefined
+    data.status !== undefined
   ) {
     fields.push(
       'status = ?'
@@ -624,12 +561,8 @@ export async function update(
     )
   }
 
-  if (
-    fields.length === 0
-  ) {
-    return findById(
-      id
-    )
+  if (fields.length === 0) {
+    return findById(id)
   }
 
   values.push(id)
@@ -638,24 +571,19 @@ export async function update(
     await db.execute<ResultSetHeader>(
       `
         UPDATE produto_empresa
-        SET ${fields.join(
-          ', '
-        )}
+        SET ${fields.join(', ')}
         WHERE id = ?
       `,
       values
     )
 
   if (
-    result.affectedRows ===
-    0
+    result.affectedRows === 0
   ) {
     return null
   }
 
-  return findById(
-    id
-  )
+  return findById(id)
 }
 
 export async function softDelete(
@@ -669,13 +597,10 @@ export async function softDelete(
         WHERE id = ?
           AND status <> 'INATIVO'
       `,
-      [
-        id,
-      ]
+      [id]
     )
 
   return (
-    result.affectedRows >
-    0
+    result.affectedRows > 0
   )
 }

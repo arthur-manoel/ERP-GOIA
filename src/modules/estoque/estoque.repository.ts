@@ -7,34 +7,22 @@ import db from '../../config/database.js'
 
 export interface Estoque {
   id: number
-
   id_empresa: number
-
   id_setor: number
-
   id_produto: number
-
   quantidade: number
-
   quantidade_reservada: number
-
   data_atualizacao: Date
 }
 
 export interface EstoqueRow
   extends RowDataPacket {
   id: number
-
   id_empresa: number
-
   id_setor: number
-
   id_produto: number
-
   quantidade: number
-
   quantidade_reservada: number
-
   data_atualizacao: Date
 }
 
@@ -45,39 +33,28 @@ interface CountRow
 
 export interface CreateEstoqueData {
   id_empresa: number
-
   id_setor: number
-
   id_produto: number
-
   quantidade: number
-
   quantidade_reservada: number
 }
 
 export interface UpdateEstoqueData {
   id_empresa?: number
-
   id_setor?: number
-
   id_produto?: number
-
   quantidade?: number
-
   quantidade_reservada?: number
 }
 
 export interface EstoqueFilters {
   idEmpresa?: number
-
   idSetor?: number
-
   idProduto?: number
 }
 
 export interface EstoquePagination {
   page: number
-
   limit: number
 }
 
@@ -85,24 +62,13 @@ function mapEstoque(
   row: EstoqueRow
 ): Estoque {
   return {
-    id:
-      row.id,
-
-    id_empresa:
-      row.id_empresa,
-
-    id_setor:
-      row.id_setor,
-
-    id_produto:
-      row.id_produto,
-
-    quantidade:
-      row.quantidade,
-
+    id: row.id,
+    id_empresa: row.id_empresa,
+    id_setor: row.id_setor,
+    id_produto: row.id_produto,
+    quantidade: row.quantidade,
     quantidade_reservada:
       row.quantidade_reservada,
-
     data_atualizacao:
       row.data_atualizacao,
   }
@@ -124,9 +90,9 @@ export async function create(
         VALUES (?, ?, ?, ?, ?)
       `,
       [
-        data.id_empresa,
-        data.id_setor,
-        data.id_produto,
+        Number(data.id_empresa),
+        Number(data.id_setor),
+        Number(data.id_produto),
         data.quantidade,
         data.quantidade_reservada,
       ]
@@ -153,11 +119,13 @@ export async function findAll(
   rows: Estoque[]
   count: number
 }> {
-  const conditions: string[] =
-    []
+  const conditions: string[] = []
 
-  const params: number[] =
-    []
+  const params: number[] = []
+
+  // =========================
+  // FILTRO EMPRESA
+  // =========================
 
   if (
     filters.idEmpresa !==
@@ -168,9 +136,13 @@ export async function findAll(
     )
 
     params.push(
-      filters.idEmpresa
+      Number(filters.idEmpresa)
     )
   }
+
+  // =========================
+  // FILTRO SETOR
+  // =========================
 
   if (
     filters.idSetor !==
@@ -181,9 +153,13 @@ export async function findAll(
     )
 
     params.push(
-      filters.idSetor
+      Number(filters.idSetor)
     )
   }
+
+  // =========================
+  // FILTRO PRODUTO
+  // =========================
 
   if (
     filters.idProduto !==
@@ -194,9 +170,13 @@ export async function findAll(
     )
 
     params.push(
-      filters.idProduto
+      Number(filters.idProduto)
     )
   }
+
+  // =========================
+  // WHERE
+  // =========================
 
   const whereClause =
     conditions.length > 0
@@ -205,60 +185,98 @@ export async function findAll(
         )}`
       : ''
 
+  // =========================
+  // PAGINAÇÃO
+  // =========================
+
+  let page = Number(
+    pagination?.page
+  )
+
+  let limit = Number(
+    pagination?.limit
+  )
+
+  if (
+    !Number.isFinite(page) ||
+    page < 1
+  ) {
+    page = 1
+  }
+
+  if (
+    !Number.isFinite(limit) ||
+    limit < 1
+  ) {
+    limit = 20
+  }
+
+  page = Math.floor(page)
+  limit = Math.floor(limit)
+
+  // Limite máximo
+  if (limit > 100) {
+    limit = 100
+  }
+
   const offset =
-    (
-      pagination.page - 1
-    ) *
-    pagination.limit
+    (page - 1) * limit
 
-  const [rows] =
-    await db.execute<
-      EstoqueRow[]
-    >(
-      `
-        SELECT
-          id,
-          id_empresa,
-          id_setor,
-          id_produto,
-          quantidade,
-          quantidade_reservada,
-          data_atualizacao
-        FROM estoque
-        ${whereClause}
-        ORDER BY id DESC
-        LIMIT ?
-        OFFSET ?
-      `,
-      [
-        ...params,
-        pagination.limit,
-        offset,
-      ]
-    )
+  // =========================
+  // SELECT
+  // =========================
 
-  const [countRows] =
-    await db.execute<
-      CountRow[]
-    >(
-      `
-        SELECT
-          COUNT(*) AS total
-        FROM estoque
-        ${whereClause}
-      `,
+  const selectSql = `
+    SELECT
+      id,
+      id_empresa,
+      id_setor,
+      id_produto,
+      quantidade,
+      quantidade_reservada,
+      data_atualizacao
+    FROM estoque
+    ${whereClause}
+    ORDER BY id DESC
+    LIMIT ${limit}
+    OFFSET ${offset}
+  `
+
+  // =========================
+  // COUNT
+  // =========================
+
+  const countSql = `
+    SELECT
+      COUNT(*) AS total
+    FROM estoque
+    ${whereClause}
+  `
+
+  // =========================
+  // EXECUÇÃO
+  // =========================
+
+  const [
+    [rows],
+    [countRows],
+  ] = await Promise.all([
+    db.execute<EstoqueRow[]>(
+      selectSql,
       params
-    )
+    ),
+
+    db.execute<CountRow[]>(
+      countSql,
+      params
+    ),
+  ])
 
   return {
-    rows:
-      rows.map(
-        mapEstoque
-      ),
-
-    count:
-      countRows[0]?.total ??
-      0,
+    rows: rows.map(mapEstoque),
+    count: Number(
+      countRows[0]?.total ?? 0
+    ),
   }
 }
 
@@ -266,9 +284,7 @@ export async function findById(
   id: number
 ): Promise<Estoque | null> {
   const [rows] =
-    await db.execute<
-      EstoqueRow[]
-    >(
+    await db.execute<EstoqueRow[]>(
       `
         SELECT
           id,
@@ -283,7 +299,7 @@ export async function findById(
         LIMIT 1
       `,
       [
-        id,
+        Number(id),
       ]
     )
 
@@ -294,9 +310,7 @@ export async function findById(
     return null
   }
 
-  return mapEstoque(
-    row
-  )
+  return mapEstoque(row)
 }
 
 export async function findByAssociacao(
@@ -305,9 +319,7 @@ export async function findByAssociacao(
   idProduto: number
 ): Promise<Estoque | null> {
   const [rows] =
-    await db.execute<
-      EstoqueRow[]
-    >(
+    await db.execute<EstoqueRow[]>(
       `
         SELECT
           id,
@@ -324,9 +336,9 @@ export async function findByAssociacao(
         LIMIT 1
       `,
       [
-        idEmpresa,
-        idSetor,
-        idProduto,
+        Number(idEmpresa),
+        Number(idSetor),
+        Number(idProduto),
       ]
     )
 
@@ -337,20 +349,18 @@ export async function findByAssociacao(
     return null
   }
 
-  return mapEstoque(
-    row
-  )
+  return mapEstoque(row)
 }
 
 export async function update(
   id: number,
   data: UpdateEstoqueData
 ): Promise<Estoque | null> {
-  const fields: string[] =
-    []
+  const fields: string[] = []
 
-  const values: number[] =
-    []
+  const values: Array<
+    number
+  > = []
 
   if (
     data.id_empresa !==
@@ -361,7 +371,7 @@ export async function update(
     )
 
     values.push(
-      data.id_empresa
+      Number(data.id_empresa)
     )
   }
 
@@ -374,7 +384,7 @@ export async function update(
     )
 
     values.push(
-      data.id_setor
+      Number(data.id_setor)
     )
   }
 
@@ -387,7 +397,7 @@ export async function update(
     )
 
     values.push(
-      data.id_produto
+      Number(data.id_produto)
     )
   }
 
@@ -423,7 +433,9 @@ export async function update(
     return findById(id)
   }
 
-  values.push(id)
+  values.push(
+    Number(id)
+  )
 
   const [result] =
     await db.execute<ResultSetHeader>(
@@ -454,7 +466,7 @@ export async function deleteEstoque(
         WHERE id = ?
       `,
       [
-        id,
+        Number(id),
       ]
     )
 

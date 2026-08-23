@@ -3,13 +3,10 @@ import {
   findAll as findAllTiposProdutosRepository,
   findById as findTipoProdutoById,
   findByNome as findTipoProdutoByNome,
-  softDelete as softDeleteTipoProdutoRepository,
+  remove as removeTipoProdutoRepository,
   update as updateTipoProdutoRepository,
-} from './tipos_produtos.repository.js'
-
-import type {
-  TipoProduto,
-  UpdateTipoProdutoData,
+  type TipoProduto,
+  type UpdateTipoProdutoData,
 } from './tipos_produtos.repository.js'
 
 import type {
@@ -18,34 +15,32 @@ import type {
   UpdateTipoProdutoInput,
 } from './tipos_produtos.schema.js'
 
-export const TIPO_PRODUTO_MESSAGES =
-  {
-    NOT_FOUND:
-      'Tipo de produto não encontrado',
+export const TIPO_PRODUTO_MESSAGES = {
+  NOT_FOUND:
+    'Tipo de produto não encontrado',
 
-    NAME_ALREADY_EXISTS:
-      'Já existe um tipo de produto cadastrado com este nome',
+  NAME_ALREADY_EXISTS:
+    'Já existe um tipo de produto cadastrado com este nome',
 
-    INVALID_DATA:
-      'Dados inválidos',
+  INVALID_DATA:
+    'Dados inválidos',
 
-    EMPTY_UPDATE:
-      'Informe pelo menos um campo para atualização',
+  EMPTY_UPDATE:
+    'Informe pelo menos um campo para atualização',
 
-    CREATED:
-      'Tipo de produto criado com sucesso',
+  CREATED:
+    'Tipo de produto criado com sucesso',
 
-    UPDATED:
-      'Tipo de produto atualizado com sucesso',
+  UPDATED:
+    'Tipo de produto atualizado com sucesso',
 
-    DELETED:
-      'Tipo de produto desativado com sucesso',
-  } as const
+  DELETED:
+    'Tipo de produto excluído com sucesso',
+} as const
 
 export class NotFoundError
   extends Error {
-  public readonly statusCode =
-    400
+  public readonly statusCode = 404
 
   constructor(
     message: string =
@@ -60,11 +55,10 @@ export class NotFoundError
 
 export class ConflictError
   extends Error {
-  public readonly statusCode =
-    409
+  public readonly statusCode = 409
 
   constructor(
-    message =
+    message: string =
       TIPO_PRODUTO_MESSAGES.NAME_ALREADY_EXISTS
   ) {
     super(message)
@@ -76,8 +70,7 @@ export class ConflictError
 
 export class ValidationError
   extends Error {
-  public readonly statusCode =
-    400
+  public readonly statusCode = 400
 
   public readonly details?:
     unknown
@@ -93,8 +86,7 @@ export class ValidationError
       'ValidationError'
 
     this.details =
-        details
-
+      details
   }
 }
 
@@ -108,8 +100,7 @@ function isDuplicateEntryError(
   error: unknown
 ): boolean {
   if (
-    typeof error !==
-      'object' ||
+    typeof error !== 'object' ||
     error === null
   ) {
     return false
@@ -121,8 +112,7 @@ function isDuplicateEntryError(
   return (
     databaseError.code ===
       'ER_DUP_ENTRY' ||
-    databaseError.errno ===
-      1062
+    databaseError.errno === 1062
   )
 }
 
@@ -145,19 +135,13 @@ export class TipoProdutoService {
     }
 
     try {
-      return await createTipoProdutoRepository(
-        {
-          nome,
-
-          descricao:
-            this.normalizeDescricao(
-              data.descricao
-            ),
-
-          ativo:
-            data.ativo ?? true,
-        }
-      )
+      return await createTipoProdutoRepository({
+        nome,
+        descricao:
+          this.normalizeDescricao(
+            data.descricao
+          ),
+      })
     } catch (error) {
       if (
         isDuplicateEntryError(
@@ -172,8 +156,7 @@ export class TipoProdutoService {
   }
 
   public async listar(
-    filters:
-      ListTiposProdutosInput
+    filters: ListTiposProdutosInput
   ): Promise<{
     rows: TipoProduto[]
     count: number
@@ -193,10 +176,6 @@ export class TipoProdutoService {
           q:
             filters.q?.trim() ||
             undefined,
-
-          includeInativos:
-            filters.include_inativos ??
-            false,
         },
         {
           page,
@@ -253,18 +232,17 @@ export class TipoProdutoService {
       )
     }
 
-    const tipoProdutoAtual =
+    const atual =
       await findTipoProdutoById(
         id
       )
 
-    if (!tipoProdutoAtual) {
+    if (!atual) {
       throw new NotFoundError()
     }
 
     const updateData:
-      UpdateTipoProdutoData =
-      {}
+      UpdateTipoProdutoData = {}
 
     if (
       data.nome !== undefined
@@ -272,15 +250,14 @@ export class TipoProdutoService {
       const nome =
         data.nome.trim()
 
-      const tipoProdutoMesmoNome =
+      const mesmoNome =
         await findTipoProdutoByNome(
           nome
         )
 
       if (
-        tipoProdutoMesmoNome &&
-        tipoProdutoMesmoNome.id !==
-          id
+        mesmoNome &&
+        mesmoNome.id !== id
       ) {
         throw new ConflictError()
       }
@@ -299,26 +276,26 @@ export class TipoProdutoService {
         )
     }
 
-    if (
-      data.ativo !== undefined
-    ) {
-      updateData.ativo =
-        data.ativo
-    }
-
     try {
-      const tipoProduto =
+      const atualizado =
         await updateTipoProdutoRepository(
           id,
           updateData
         )
 
-      if (!tipoProduto) {
+      if (!atualizado) {
         throw new NotFoundError()
       }
 
-      return tipoProduto
+      return atualizado
     } catch (error) {
+      if (
+        error instanceof
+        NotFoundError
+      ) {
+        throw error
+      }
+
       if (
         isDuplicateEntryError(
           error
@@ -345,20 +322,13 @@ export class TipoProdutoService {
       throw new NotFoundError()
     }
 
-    /*
-     * A exclusão lógica é
-     * idempotente.
-     *
-     * Se o registro já estiver
-     * inativo, continua sendo
-     * considerado excluído.
-     */
-    if (
-      tipoProduto.ativo
-    ) {
-      await softDeleteTipoProdutoRepository(
+    const deleted =
+      await removeTipoProdutoRepository(
         id
       )
+
+    if (!deleted) {
+      throw new NotFoundError()
     }
 
     return {
@@ -380,12 +350,9 @@ export class TipoProdutoService {
       return null
     }
 
-    const descricaoNormalizada =
+    const normalizada =
       descricao.trim()
 
-    return (
-      descricaoNormalizada ||
-      null
-    )
+    return normalizada || null
   }
 }

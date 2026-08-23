@@ -17,8 +17,6 @@ export interface ProdutoFornecedor {
 
   id_produto: number
 
-  id_fornecedor: number
-
   codigo_produto_fornecedor: string
 
   preco_ultima_compra: number
@@ -31,8 +29,6 @@ export interface ProdutoFornecedor {
 
   status:
     ProdutoFornecedorStatus
-
-  data_cadastro: Date
 }
 
 export interface ProdutoFornecedorRow
@@ -42,8 +38,6 @@ export interface ProdutoFornecedorRow
   id_empresa: number
 
   id_produto: number
-
-  id_fornecedor: number
 
   codigo_produto_fornecedor: string
 
@@ -57,8 +51,6 @@ export interface ProdutoFornecedorRow
 
   status:
     ProdutoFornecedorStatus
-
-  data_cadastro: Date
 }
 
 interface CountRow
@@ -70,8 +62,6 @@ export interface CreateProdutoFornecedorData {
   id_empresa: number
 
   id_produto: number
-
-  id_fornecedor: number
 
   codigo_produto_fornecedor: string
 
@@ -92,8 +82,6 @@ export interface UpdateProdutoFornecedorData {
 
   id_produto?: number
 
-  id_fornecedor?: number
-
   codigo_produto_fornecedor?: string
 
   preco_ultima_compra?: number
@@ -112,8 +100,6 @@ export interface ProdutoFornecedorFilters {
   idEmpresa?: number
 
   idProduto?: number
-
-  idFornecedor?: number
 
   includeInativos?: boolean
 }
@@ -137,9 +123,6 @@ function mapProdutoFornecedor(
     id_produto:
       row.id_produto,
 
-    id_fornecedor:
-      row.id_fornecedor,
-
     codigo_produto_fornecedor:
       row.codigo_produto_fornecedor,
 
@@ -161,9 +144,6 @@ function mapProdutoFornecedor(
 
     status:
       row.status,
-
-    data_cadastro:
-      row.data_cadastro,
   }
 }
 
@@ -177,7 +157,6 @@ export async function create(
         INSERT INTO produto_fornecedor (
           id_empresa,
           id_produto,
-          id_fornecedor,
           codigo_produto_fornecedor,
           preco_ultima_compra,
           prazo_entrega_dias,
@@ -185,12 +164,11 @@ export async function create(
           fornecedor_principal,
           status
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `,
       [
         data.id_empresa,
         data.id_produto,
-        data.id_fornecedor,
         data.codigo_produto_fornecedor,
         data.preco_ultima_compra,
         data.prazo_entrega_dias,
@@ -216,21 +194,61 @@ export async function create(
 }
 
 export async function findAll(
-  filters:
-    ProdutoFornecedorFilters,
-  pagination:
-    ProdutoFornecedorPagination
+  filters: {
+    idEmpresa?: number
+    idProduto?: number
+    includeInativos?: boolean
+  },
+  pagination: {
+    page: number
+    limit: number
+  }
 ): Promise<{
   rows: ProdutoFornecedor[]
   count: number
 }> {
-  const conditions: string[] =
-    []
+  const page = Math.max(
+    1,
+    Number(pagination.page) || 1
+  )
 
-  const params: Array<
-    string |
-    number
-  > = []
+  const limit = Math.min(
+    100,
+    Math.max(
+      1,
+      Number(pagination.limit) || 20
+    )
+  )
+
+  const offset =
+    (page - 1) * limit
+
+  const conditions: string[] = []
+  const params: Array<number> = []
+
+  if (
+    filters.idEmpresa !== undefined
+  ) {
+    conditions.push(
+      'id_empresa = ?'
+    )
+
+    params.push(
+      Number(filters.idEmpresa)
+    )
+  }
+
+  if (
+    filters.idProduto !== undefined
+  ) {
+    conditions.push(
+      'id_produto = ?'
+    )
+
+    params.push(
+      Number(filters.idProduto)
+    )
+  }
 
   if (
     !filters.includeInativos
@@ -240,98 +258,47 @@ export async function findAll(
     )
   }
 
-  if (
-    filters.idEmpresa !==
-    undefined
-  ) {
-    conditions.push(
-      'id_empresa = ?'
-    )
-
-    params.push(
-      filters.idEmpresa
-    )
-  }
-
-  if (
-    filters.idProduto !==
-    undefined
-  ) {
-    conditions.push(
-      'id_produto = ?'
-    )
-
-    params.push(
-      filters.idProduto
-    )
-  }
-
-  if (
-    filters.idFornecedor !==
-    undefined
-  ) {
-    conditions.push(
-      'id_fornecedor = ?'
-    )
-
-    params.push(
-      filters.idFornecedor
-    )
-  }
-
   const whereClause =
     conditions.length > 0
-      ? `WHERE ${conditions.join(
-          ' AND '
-        )}`
+      ? `WHERE ${conditions.join(' AND ')}`
       : ''
 
-  const offset =
-    (
-      pagination.page - 1
-    ) *
-    pagination.limit
+  const sql = `
+    SELECT
+      id,
+      id_empresa,
+      id_produto,
+      codigo_produto_fornecedor,
+      preco_ultima_compra,
+      prazo_entrega_dias,
+      quantidade_minima,
+      fornecedor_principal,
+      status
+    FROM produto_fornecedor
+    ${whereClause}
+    ORDER BY id DESC
+    LIMIT ${limit}
+    OFFSET ${offset}
+  `
 
   const [rows] =
     await db.execute<
       ProdutoFornecedorRow[]
     >(
-      `
-        SELECT
-          id,
-          id_empresa,
-          id_produto,
-          id_fornecedor,
-          codigo_produto_fornecedor,
-          preco_ultima_compra,
-          prazo_entrega_dias,
-          quantidade_minima,
-          fornecedor_principal,
-          status,
-          data_cadastro
-        FROM produto_fornecedor
-        ${whereClause}
-        ORDER BY id DESC
-        LIMIT ?
-        OFFSET ?
-      `,
-      [
-        ...params,
-        pagination.limit,
-        offset,
-      ]
+      sql,
+      params
     )
 
+  const countSql = `
+    SELECT
+      COUNT(*) AS total
+    FROM produto_fornecedor
+    ${whereClause}
+  `
+
   const [countRows] =
-    await db.execute<
-      CountRow[]
-    >(
-      `
-        SELECT
-          COUNT(*) AS total
-        FROM produto_fornecedor
-        ${whereClause}
-      `,
+    await db.execute<CountRow[]>(
+      countSql,
       params
     )
 
@@ -342,8 +309,7 @@ export async function findAll(
       ),
 
     count:
-      countRows[0]?.total ??
-      0,
+      countRows[0]?.total ?? 0,
   }
 }
 
@@ -361,14 +327,12 @@ export async function findById(
           id,
           id_empresa,
           id_produto,
-          id_fornecedor,
           codigo_produto_fornecedor,
           preco_ultima_compra,
           prazo_entrega_dias,
           quantidade_minima,
           fornecedor_principal,
-          status,
-          data_cadastro
+          status
         FROM produto_fornecedor
         WHERE id = ?
         LIMIT 1
@@ -392,8 +356,7 @@ export async function findById(
 
 export async function findByAssociacao(
   idEmpresa: number,
-  idProduto: number,
-  idFornecedor: number
+  idProduto: number
 ): Promise<
   ProdutoFornecedor | null
 > {
@@ -406,24 +369,20 @@ export async function findByAssociacao(
           id,
           id_empresa,
           id_produto,
-          id_fornecedor,
           codigo_produto_fornecedor,
           preco_ultima_compra,
           prazo_entrega_dias,
           quantidade_minima,
           fornecedor_principal,
-          status,
-          data_cadastro
+          status
         FROM produto_fornecedor
         WHERE id_empresa = ?
           AND id_produto = ?
-          AND id_fornecedor = ?
         LIMIT 1
       `,
       [
         idEmpresa,
         idProduto,
-        idFornecedor,
       ]
     )
 
@@ -478,19 +437,6 @@ export async function update(
 
     values.push(
       data.id_produto
-    )
-  }
-
-  if (
-    data.id_fornecedor !==
-    undefined
-  ) {
-    fields.push(
-      'id_fornecedor = ?'
-    )
-
-    values.push(
-      data.id_fornecedor
     )
   }
 
@@ -584,17 +530,14 @@ export async function update(
     await db.execute<ResultSetHeader>(
       `
         UPDATE produto_fornecedor
-        SET ${fields.join(
-          ', '
-        )}
+        SET ${fields.join(', ')}
         WHERE id = ?
       `,
       values
     )
 
   if (
-    result.affectedRows ===
-    0
+    result.affectedRows === 0
   ) {
     return null
   }

@@ -5,7 +5,8 @@ import {
 
 import db from '../../config/database.js'
 
-export interface CategoriaRow extends RowDataPacket {
+export interface CategoriaRow
+  extends RowDataPacket {
   id: number
   id_empresa: number
   nome: string
@@ -13,7 +14,8 @@ export interface CategoriaRow extends RowDataPacket {
   status: 'ATIVO' | 'INATIVO'
 }
 
-interface CountRow extends RowDataPacket {
+interface CountRow
+  extends RowDataPacket {
   total: number
 }
 
@@ -42,30 +44,35 @@ export interface CategoriaPagination {
   limit: number
 }
 
+/**
+ * Criar categoria
+ */
 export async function createCategoria(
   data: CreateCategoriaData
 ): Promise<CategoriaRow> {
-  const [result] = await db.execute<ResultSetHeader>(
-    `
-      INSERT INTO categoria (
-        id_empresa,
-        nome,
-        descricao,
-        status
-      )
-      VALUES (?, ?, ?, ?)
-    `,
-    [
-      data.id_empresa,
-      data.nome,
-      data.descricao ?? null,
-      data.status ?? 'ATIVO',
-    ]
-  )
+  const [result] =
+    await db.execute<ResultSetHeader>(
+      `
+        INSERT INTO categorias (
+          id_empresa,
+          nome,
+          descricao,
+          status
+        )
+        VALUES (?, ?, ?, ?)
+      `,
+      [
+        Number(data.id_empresa),
+        data.nome,
+        data.descricao ?? null,
+        data.status ?? 'ATIVO',
+      ]
+    )
 
-  const categoria = await findCategoriaById(
-    result.insertId
-  )
+  const categoria =
+    await findCategoriaById(
+      result.insertId
+    )
 
   if (!categoria) {
     throw new Error(
@@ -76,6 +83,9 @@ export async function createCategoria(
   return categoria
 }
 
+/**
+ * Listar categorias
+ */
 export async function findAllCategorias(
   filters: CategoriaFilters,
   pagination: CategoriaPagination
@@ -84,19 +94,39 @@ export async function findAllCategorias(
   count: number
 }> {
   const conditions: string[] = []
-  const params: Array<string | number> = []
 
+  const params: Array<
+    string | number
+  > = []
+
+  // Somente categorias ativas
+  // por padrão
   if (!filters.include_inativos) {
-    conditions.push(`status = 'ATIVO'`)
+    conditions.push(
+      `status = 'ATIVO'`
+    )
   }
 
-  if (filters.id_empresa !== undefined) {
-    conditions.push('id_empresa = ?')
-    params.push(filters.id_empresa)
+  // Filtro por empresa
+  if (
+    filters.id_empresa !==
+    undefined
+  ) {
+    conditions.push(
+      'id_empresa = ?'
+    )
+
+    params.push(
+      Number(filters.id_empresa)
+    )
   }
 
+  // Busca por nome
   if (filters.q) {
-    conditions.push('LOWER(nome) LIKE ?')
+    conditions.push(
+      'LOWER(nome) LIKE ?'
+    )
+
     params.push(
       `%${filters.q.toLowerCase()}%`
     )
@@ -104,105 +134,152 @@ export async function findAllCategorias(
 
   const whereClause =
     conditions.length > 0
-      ? `WHERE ${conditions.join(' AND ')}`
+      ? `WHERE ${conditions.join(
+          ' AND '
+        )}`
       : ''
 
+  // =========================
+  // PAGINAÇÃO
+  // =========================
+
+  let page = Number(
+    pagination?.page
+  )
+
+  let limit = Number(
+    pagination?.limit
+  )
+
+  if (
+    !Number.isFinite(page) ||
+    page < 1
+  ) {
+    page = 1
+  }
+
+  if (
+    !Number.isFinite(limit) ||
+    limit < 1
+  ) {
+    limit = 20
+  }
+
+  page = Math.floor(page)
+  limit = Math.floor(limit)
+
+  // Limite máximo
+  if (limit > 100) {
+    limit = 100
+  }
+
   const offset =
-    (pagination.page - 1) *
-    pagination.limit
+    (page - 1) * limit
 
-  const [rows] = await db.execute<
-    CategoriaRow[]
-  >(
-    `
-      SELECT
-        id,
-        id_empresa,
-        nome,
-        descricao,
-        status
-      FROM categoria
-      ${whereClause}
-      ORDER BY nome ASC
-      LIMIT ?
-      OFFSET ?
-    `,
-    [
-      ...params,
-      pagination.limit,
-      offset,
-    ]
-  )
+  // =========================
+  // BUSCAR CATEGORIAS
+  // =========================
 
-  const [countRows] = await db.execute<
-    CountRow[]
-  >(
-    `
-      SELECT
-        COUNT(*) AS total
-      FROM categoria
-      ${whereClause}
-    `,
-    params
-  )
+  const [rows] =
+    await db.execute<CategoriaRow[]>(
+      `
+        SELECT
+          id,
+          id_empresa,
+          nome,
+          descricao,
+          status
+        FROM categorias
+        ${whereClause}
+        ORDER BY nome ASC
+        LIMIT ${limit}
+        OFFSET ${offset}
+      `,
+      params
+    )
+
+  // =========================
+  // CONTAGEM
+  // =========================
+
+  const [countRows] =
+    await db.execute<CountRow[]>(
+      `
+        SELECT
+          COUNT(*) AS total
+        FROM categorias
+        ${whereClause}
+      `,
+      params
+    )
 
   return {
     rows,
-    count: countRows[0]?.total ?? 0,
+    count:
+      countRows[0]?.total ?? 0,
   }
 }
 
+/**
+ * Buscar categoria por ID
+ */
 export async function findCategoriaById(
   id: number
 ): Promise<CategoriaRow | null> {
-  const [rows] = await db.execute<
-    CategoriaRow[]
-  >(
-    `
-      SELECT
-        id,
-        id_empresa,
-        nome,
-        descricao,
-        status
-      FROM categoria
-      WHERE id = ?
-      LIMIT 1
-    `,
-    [id]
-  )
+  const [rows] =
+    await db.execute<CategoriaRow[]>(
+      `
+        SELECT
+          id,
+          id_empresa,
+          nome,
+          descricao,
+          status
+        FROM categorias
+        WHERE id = ?
+        LIMIT 1
+      `,
+      [
+        Number(id),
+      ]
+    )
 
   return rows[0] ?? null
 }
 
+/**
+ * Buscar categoria por nome e empresa
+ */
 export async function findCategoriaByNome(
   nome: string,
   idEmpresa: number
 ): Promise<CategoriaRow | null> {
-  const [rows] = await db.execute<
-    CategoriaRow[]
-  >(
-    `
-      SELECT
-        id,
-        id_empresa,
+  const [rows] =
+    await db.execute<CategoriaRow[]>(
+      `
+        SELECT
+          id,
+          id_empresa,
+          nome,
+          descricao,
+          status
+        FROM categorias
+        WHERE LOWER(nome) = LOWER(?)
+          AND id_empresa = ?
+        LIMIT 1
+      `,
+      [
         nome,
-        descricao,
-        status
-      FROM categoria
-      WHERE LOWER(nome) = LOWER(?)
-        AND id_empresa = ?
-      LIMIT 1
-    `,
-    [
-      nome,
-      idEmpresa,
-    ]
-  )
+        Number(idEmpresa),
+      ]
+    )
 
   return rows[0] ?? null
 }
 
+/**
+ * Atualizar categoria
+ */
 export async function updateCategoria(
   id: number,
   data: UpdateCategoriaData
@@ -213,59 +290,102 @@ export async function updateCategoria(
     string | number | null
   > = []
 
-  if (data.id_empresa !== undefined) {
-    fields.push('id_empresa = ?')
-    values.push(data.id_empresa)
+  if (
+    data.id_empresa !==
+    undefined
+  ) {
+    fields.push(
+      'id_empresa = ?'
+    )
+
+    values.push(
+      Number(data.id_empresa)
+    )
   }
 
   if (data.nome !== undefined) {
-    fields.push('nome = ?')
-    values.push(data.nome)
+    fields.push(
+      'nome = ?'
+    )
+
+    values.push(
+      data.nome
+    )
   }
 
-  if (data.descricao !== undefined) {
-    fields.push('descricao = ?')
-    values.push(data.descricao)
+  if (
+    data.descricao !==
+    undefined
+  ) {
+    fields.push(
+      'descricao = ?'
+    )
+
+    values.push(
+      data.descricao
+    )
   }
 
-  if (data.status !== undefined) {
-    fields.push('status = ?')
-    values.push(data.status)
+  if (
+    data.status !==
+    undefined
+  ) {
+    fields.push(
+      'status = ?'
+    )
+
+    values.push(
+      data.status
+    )
   }
 
+  // Nenhum campo para atualizar
   if (fields.length === 0) {
     return findCategoriaById(id)
   }
 
-  values.push(id)
-
-  const [result] = await db.execute<ResultSetHeader>(
-    `
-      UPDATE categoria
-      SET ${fields.join(', ')}
-      WHERE id = ?
-    `,
-    values
+  values.push(
+    Number(id)
   )
 
-  if (result.affectedRows === 0) {
+  const [result] =
+    await db.execute<ResultSetHeader>(
+      `
+        UPDATE categorias
+        SET ${fields.join(', ')}
+        WHERE id = ?
+      `,
+      values
+    )
+
+  if (
+    result.affectedRows === 0
+  ) {
     return null
   }
 
   return findCategoriaById(id)
 }
 
+/**
+ * Desativar categoria
+ */
 export async function softDeleteCategoria(
   id: number
 ): Promise<boolean> {
-  const [result] = await db.execute<ResultSetHeader>(
-    `
-      UPDATE categoria
-      SET status = 'INATIVO'
-      WHERE id = ?
-    `,
-    [id]
-  )
+  const [result] =
+    await db.execute<ResultSetHeader>(
+      `
+        UPDATE categorias
+        SET status = 'INATIVO'
+        WHERE id = ?
+      `,
+      [
+        Number(id),
+      ]
+    )
 
-  return result.affectedRows > 0
+  return (
+    result.affectedRows > 0
+  )
 }

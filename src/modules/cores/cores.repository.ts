@@ -5,33 +5,26 @@ import type {
 
 import db from '../../config/database.js'
 
-export interface CorRow
-  extends RowDataPacket {
+export interface CorRow extends RowDataPacket {
   id: number
   id_empresa: number
   nome: string
   codigo_hex: string
-  status:
-    | 'ATIVO'
-    | 'INATIVO'
+  status: 'ATIVO' | 'INATIVO'
 }
 
 export interface CreateCorData {
   id_empresa: number
   nome: string
   codigo_hex: string
-  status:
-    | 'ATIVO'
-    | 'INATIVO'
+  status: 'ATIVO' | 'INATIVO'
 }
 
 export interface UpdateCorData {
   id_empresa?: number
   nome?: string
   codigo_hex?: string
-  status?:
-    | 'ATIVO'
-    | 'INATIVO'
+  status?: 'ATIVO' | 'INATIVO'
 }
 
 export interface CorFilters {
@@ -45,8 +38,7 @@ export interface Pagination {
   limit: number
 }
 
-interface CountRow
-  extends RowDataPacket {
+interface CountRow extends RowDataPacket {
   total: number
 }
 
@@ -73,9 +65,7 @@ export async function createCor(
     )
 
   const cor =
-    await findCorById(
-      result.insertId
-    )
+    await findCorById(result.insertId)
 
   if (!cor) {
     throw new Error(
@@ -93,29 +83,26 @@ export async function findAllCores(
   rows: CorRow[]
   count: number
 }> {
-  const conditions:
-    string[] = []
+  const conditions: string[] = []
 
-  const params:
-    Array<
-      string | number
-    > = []
+  const params: Array<
+    string | number
+  > = []
 
-  if (
-    !filters.includeInativos
-  ) {
+  /*
+   * Filtro de status.
+   *
+   * Não usamos "status = ?" aqui porque
+   * o valor é fixo.
+   */
+  if (!filters.includeInativos) {
     conditions.push(
-      'status = ?'
-    )
-
-    params.push(
-      'ATIVO'
+      "status = 'ATIVO'"
     )
   }
 
   if (
-    filters.id_empresa !==
-    undefined
+    filters.id_empresa !== undefined
   ) {
     conditions.push(
       'id_empresa = ?'
@@ -128,11 +115,20 @@ export async function findAllCores(
 
   if (filters.q) {
     conditions.push(
-      'nome LIKE ?'
+      `
+        (
+          LOWER(nome) LIKE ?
+          OR LOWER(codigo_hex) LIKE ?
+        )
+      `
     )
 
+    const search =
+      `%${filters.q.toLowerCase()}%`
+
     params.push(
-      `%${filters.q}%`
+      search,
+      search
     )
   }
 
@@ -143,14 +139,30 @@ export async function findAllCores(
         )}`
       : ''
 
+  /*
+   * IMPORTANTE:
+   *
+   * Não usamos LIMIT ? OFFSET ? com
+   * mysql2.execute().
+   *
+   * Transformamos os valores em inteiros
+   * antes de colocá-los na SQL.
+   */
+  const page = Math.max(
+    1,
+    Math.floor(Number(pagination.page))
+  )
+
+  const limit = Math.max(
+    1,
+    Math.floor(Number(pagination.limit))
+  )
+
   const offset =
-    (pagination.page - 1) *
-    pagination.limit
+    (page - 1) * limit
 
   const [rows] =
-    await db.execute<
-      CorRow[]
-    >(
+    await db.execute<CorRow[]>(
       `
         SELECT
           id,
@@ -161,20 +173,14 @@ export async function findAllCores(
         FROM cores
         ${whereClause}
         ORDER BY nome ASC
-        LIMIT ?
-        OFFSET ?
+        LIMIT ${limit}
+        OFFSET ${offset}
       `,
-      [
-        ...params,
-        pagination.limit,
-        offset,
-      ]
+      params
     )
 
   const [countRows] =
-    await db.execute<
-      CountRow[]
-    >(
+    await db.execute<CountRow[]>(
       `
         SELECT
           COUNT(*) AS total
@@ -186,10 +192,8 @@ export async function findAllCores(
 
   return {
     rows,
-
     count:
-      countRows[0]
-        ?.total ?? 0,
+      countRows[0]?.total ?? 0,
   }
 }
 
@@ -197,9 +201,7 @@ export async function findCorById(
   id: number
 ): Promise<CorRow | null> {
   const [rows] =
-    await db.execute<
-      CorRow[]
-    >(
+    await db.execute<CorRow[]>(
       `
         SELECT
           id,
@@ -211,15 +213,10 @@ export async function findCorById(
         WHERE id = ?
         LIMIT 1
       `,
-      [
-        id,
-      ]
+      [id]
     )
 
-  return (
-    rows[0] ??
-    null
-  )
+  return rows[0] ?? null
 }
 
 export async function findCorByNome(
@@ -227,9 +224,7 @@ export async function findCorByNome(
   idEmpresa: number
 ): Promise<CorRow | null> {
   const [rows] =
-    await db.execute<
-      CorRow[]
-    >(
+    await db.execute<CorRow[]>(
       `
         SELECT
           id,
@@ -238,8 +233,7 @@ export async function findCorByNome(
           codigo_hex,
           status
         FROM cores
-        WHERE
-          LOWER(nome) = LOWER(?)
+        WHERE LOWER(nome) = LOWER(?)
           AND id_empresa = ?
         LIMIT 1
       `,
@@ -249,27 +243,21 @@ export async function findCorByNome(
       ]
     )
 
-  return (
-    rows[0] ??
-    null
-  )
+  return rows[0] ?? null
 }
 
 export async function updateCor(
   id: number,
   data: UpdateCorData
 ): Promise<CorRow | null> {
-  const fields:
-    string[] = []
+  const fields: string[] = []
 
-  const values:
-    Array<
-      string | number
-    > = []
+  const values: Array<
+    string | number
+  > = []
 
   if (
-    data.id_empresa !==
-    undefined
+    data.id_empresa !== undefined
   ) {
     fields.push(
       'id_empresa = ?'
@@ -281,8 +269,7 @@ export async function updateCor(
   }
 
   if (
-    data.nome !==
-    undefined
+    data.nome !== undefined
   ) {
     fields.push(
       'nome = ?'
@@ -294,8 +281,7 @@ export async function updateCor(
   }
 
   if (
-    data.codigo_hex !==
-    undefined
+    data.codigo_hex !== undefined
   ) {
     fields.push(
       'codigo_hex = ?'
@@ -307,8 +293,7 @@ export async function updateCor(
   }
 
   if (
-    data.status !==
-    undefined
+    data.status !== undefined
   ) {
     fields.push(
       'status = ?'
@@ -319,39 +304,29 @@ export async function updateCor(
     )
   }
 
-  if (
-    fields.length === 0
-  ) {
-    return findCorById(
-      id
-    )
+  if (fields.length === 0) {
+    return findCorById(id)
   }
 
-  values.push(
-    id
-  )
+  values.push(id)
 
   const [result] =
     await db.execute<ResultSetHeader>(
       `
         UPDATE cores
-        SET
-          ${fields.join(', ')}
+        SET ${fields.join(', ')}
         WHERE id = ?
       `,
       values
     )
 
   if (
-    result.affectedRows ===
-    0
+    result.affectedRows === 0
   ) {
     return null
   }
 
-  return findCorById(
-    id
-  )
+  return findCorById(id)
 }
 
 export async function softDeleteCor(
@@ -364,13 +339,10 @@ export async function softDeleteCor(
         SET status = 'INATIVO'
         WHERE id = ?
       `,
-      [
-        id,
-      ]
+      [id]
     )
 
   return (
-    result.affectedRows >
-    0
+    result.affectedRows > 0
   )
 }

@@ -5,11 +5,10 @@ const idSchema = z
   .int('O id deve ser um número inteiro')
   .positive('O id deve ser maior que zero')
 
-const nullableIdSchema = z
-  .union([
-    idSchema,
-    z.null(),
-  ])
+const nullableIdSchema = z.union([
+  idSchema,
+  z.null(),
+])
 
 const numeroSchema = z
   .string()
@@ -101,7 +100,7 @@ export const createNotaFiscalSchema =
       id_empresa:
         idSchema,
 
-      id_fronecedor:
+      id_fornecedor:
         idSchema,
 
       id_pedido_compra:
@@ -148,15 +147,16 @@ export const createNotaFiscalSchema =
           .nullable()
           .optional(),
 
-      observacao: z
-        .string()
-        .trim()
-        .max(
-          1000,
-          'A observação deve possuir no máximo 1000 caracteres'
-        )
-        .nullable()
-        .optional(),
+      observacao:
+        z
+          .string()
+          .trim()
+          .max(
+            1000,
+            'A observação deve possuir no máximo 1000 caracteres'
+          )
+          .nullable()
+          .optional(),
     })
     .strict()
 
@@ -166,7 +166,7 @@ export const updateNotaFiscalSchema =
       id_empresa:
         idSchema.optional(),
 
-      id_fronecedor:
+      id_fornecedor:
         idSchema.optional(),
 
       id_pedido_compra:
@@ -212,15 +212,16 @@ export const updateNotaFiscalSchema =
           .nullable()
           .optional(),
 
-      observacao: z
-        .string()
-        .trim()
-        .max(
-          1000,
-          'A observação deve possuir no máximo 1000 caracteres'
-        )
-        .nullable()
-        .optional(),
+      observacao:
+        z
+          .string()
+          .trim()
+          .max(
+            1000,
+            'A observação deve possuir no máximo 1000 caracteres'
+          )
+          .nullable()
+          .optional(),
     })
     .strict()
     .refine(
@@ -264,7 +265,7 @@ export const listNotasFiscaisSchema =
         .positive()
         .optional(),
 
-    id_fronecedor:
+    id_fornecedor:
       z.coerce
         .number()
         .int()

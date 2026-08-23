@@ -8,7 +8,7 @@ import db from '../../config/database.js'
 export interface NotaFiscal {
   id: number
   id_empresa: number
-  id_fronecedor: number
+  id_fornecedor: number
   id_pedido_compra: number | null
   id_setor_destino: number | null
   numero: string
@@ -23,11 +23,10 @@ export interface NotaFiscal {
   observacao: string | null
 }
 
-export interface NotaFiscalRow
-  extends RowDataPacket {
+export interface NotaFiscalRow extends RowDataPacket {
   id: number
   id_empresa: number
-  id_fronecedor: number
+  id_fornecedor: number
   id_pedido_compra: number | null
   id_setor_destino: number | null
   numero: string
@@ -42,14 +41,13 @@ export interface NotaFiscalRow
   observacao: string | null
 }
 
-interface CountRow
-  extends RowDataPacket {
+interface CountRow extends RowDataPacket {
   total: number
 }
 
 export interface CreateNotaFiscalData {
   id_empresa: number
-  id_fronecedor: number
+  id_fornecedor: number
   id_pedido_compra?: number | null
   id_setor_destino?: number | null
   numero: string
@@ -66,7 +64,7 @@ export interface CreateNotaFiscalData {
 
 export interface UpdateNotaFiscalData {
   id_empresa?: number
-  id_fronecedor?: number
+  id_fornecedor?: number
   id_pedido_compra?: number | null
   id_setor_destino?: number | null
   numero?: string
@@ -84,7 +82,7 @@ export interface UpdateNotaFiscalData {
 export interface NotaFiscalFilters {
   q?: string
   idEmpresa?: number
-  idFronecedor?: number
+  idFornecedor?: number
   idPedidoCompra?: number
   idSetorDestino?: number
   status?: string
@@ -99,7 +97,7 @@ export interface NotaFiscalPagination {
 const selectFields = `
   id,
   id_empresa,
-  id_fronecedor,
+  id_fornecedor,
   id_pedido_compra,
   id_setor_destino,
   numero,
@@ -132,8 +130,8 @@ function mapNotaFiscal(
     id_empresa:
       row.id_empresa,
 
-    id_fronecedor:
-      row.id_fronecedor,
+    id_fornecedor:
+      row.id_fornecedor,
 
     id_pedido_compra:
       row.id_pedido_compra,
@@ -183,7 +181,7 @@ export async function createNotaFiscal(
       `
         INSERT INTO nota_fiscal (
           id_empresa,
-          id_fronecedor,
+          id_fornecedor,
           id_pedido_compra,
           id_setor_destino,
           numero,
@@ -204,24 +202,38 @@ export async function createNotaFiscal(
       `,
       [
         data.id_empresa,
-        data.id_fronecedor,
+
+        data.id_fornecedor,
+
         data.id_pedido_compra ??
           null,
+
         data.id_setor_destino ??
           null,
+
         data.numero,
-        data.serie ?? null,
+
+        data.serie ??
+          null,
+
         data.chave_acesso ??
           null,
+
         data.status,
+
         data.data_emissao,
+
         data.data_recebimento ??
           null,
+
         data.valor_total,
+
         data.entrada_processada ??
           false,
+
         data.data_processamento ??
           null,
+
         data.observacao ??
           null,
       ]
@@ -248,16 +260,15 @@ export async function findAllNotasFiscais(
   rows: NotaFiscal[]
   count: number
 }> {
-  const conditions: string[] =
-    []
+  const conditions: string[] = []
 
   const params: Array<
     string | number | boolean
   > = []
 
   if (filters.q) {
-    conditions.push(
-      `(
+    conditions.push(`
+      (
         LOWER(numero) LIKE ?
         OR LOWER(
           COALESCE(
@@ -265,8 +276,8 @@ export async function findAllNotasFiscais(
             ''
           )
         ) LIKE ?
-      )`
-    )
+      )
+    `)
 
     const search =
       `%${filters.q.toLowerCase()}%`
@@ -291,15 +302,15 @@ export async function findAllNotasFiscais(
   }
 
   if (
-    filters.idFronecedor !==
+    filters.idFornecedor !==
     undefined
   ) {
     conditions.push(
-      'id_fronecedor = ?'
+      'id_fornecedor = ?'
     )
 
     params.push(
-      filters.idFronecedor
+      filters.idFornecedor
     )
   }
 
@@ -359,9 +370,23 @@ export async function findAllNotasFiscais(
         )}`
       : ''
 
+  /*
+   * Corrige problemas com LIMIT/OFFSET.
+   * Garantimos que page e limit sejam números
+   * inteiros e positivos.
+   */
+  const page = Math.max(
+    1,
+    Number(pagination.page) || 1
+  )
+
+  const limit = Math.max(
+    1,
+    Number(pagination.limit) || 10
+  )
+
   const offset =
-    (pagination.page - 1) *
-    pagination.limit
+    (page - 1) * limit
 
   const [
     [rows],
@@ -376,14 +401,10 @@ export async function findAllNotasFiscais(
         ORDER BY
           data_emissao DESC,
           id DESC
-        LIMIT ?
-        OFFSET ?
+        LIMIT ${limit}
+        OFFSET ${offset}
       `,
-      [
-        ...params,
-        pagination.limit,
-        offset,
-      ]
+      params
     ),
 
     db.execute<CountRow[]>(
@@ -466,8 +487,7 @@ export async function updateNotaFiscalRepository(
   id: number,
   data: UpdateNotaFiscalData
 ): Promise<NotaFiscal | null> {
-  const fields: string[] =
-    []
+  const fields: string[] = []
 
   const values: Array<
     string |
@@ -490,15 +510,15 @@ export async function updateNotaFiscalRepository(
   }
 
   if (
-    data.id_fronecedor !==
+    data.id_fornecedor !==
     undefined
   ) {
     fields.push(
-      'id_fronecedor = ?'
+      'id_fornecedor = ?'
     )
 
     values.push(
-      data.id_fronecedor
+      data.id_fornecedor
     )
   }
 
@@ -529,7 +549,8 @@ export async function updateNotaFiscalRepository(
   }
 
   if (
-    data.numero !== undefined
+    data.numero !==
+    undefined
   ) {
     fields.push(
       'numero = ?'
@@ -541,7 +562,8 @@ export async function updateNotaFiscalRepository(
   }
 
   if (
-    data.serie !== undefined
+    data.serie !==
+    undefined
   ) {
     fields.push(
       'serie = ?'
@@ -566,7 +588,8 @@ export async function updateNotaFiscalRepository(
   }
 
   if (
-    data.status !== undefined
+    data.status !==
+    undefined
   ) {
     fields.push(
       'status = ?'

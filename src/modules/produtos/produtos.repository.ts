@@ -106,25 +106,16 @@ function mapProduto(
       row.id_modelo,
     nome: row.nome,
     codigo: row.codigo,
-    descricao:
-      row.descricao,
+    descricao: row.descricao,
     unidade: row.unidade,
     controla_estoque:
-      Boolean(
-        row.controla_estoque
-      ),
+      Boolean(row.controla_estoque),
     permite_venda:
-      Boolean(
-        row.permite_venda
-      ),
+      Boolean(row.permite_venda),
     permite_compra:
-      Boolean(
-        row.permite_compra
-      ),
+      Boolean(row.permite_compra),
     permite_producao:
-      Boolean(
-        row.permite_producao
-      ),
+      Boolean(row.permite_producao),
     status: row.status,
     data_cadastro:
       row.data_cadastro,
@@ -170,9 +161,7 @@ export async function create(
     )
 
   const produto =
-    await findById(
-      result.insertId
-    )
+    await findById(result.insertId)
 
   if (!produto) {
     throw new Error(
@@ -190,21 +179,19 @@ export async function findAll(
   rows: Produto[]
   count: number
 }> {
-  const conditions: string[] =
-    []
+  const conditions: string[] = []
 
   const params: Array<
     string | number
   > = []
 
-  if (filters.status) {
-    conditions.push(
-      'status = ?'
-    )
+  // =========================
+  // STATUS
+  // =========================
 
-    params.push(
-      filters.status
-    )
+  if (filters.status) {
+    conditions.push('status = ?')
+    params.push(filters.status)
   } else if (
     !filters.includeInativos
   ) {
@@ -213,15 +200,17 @@ export async function findAll(
     )
   }
 
+  // =========================
+  // BUSCA
+  // =========================
+
   if (filters.q) {
-    conditions.push(
-      `
-        (
-          LOWER(nome) LIKE ?
-          OR LOWER(codigo) LIKE ?
-        )
-      `
-    )
+    conditions.push(`
+      (
+        LOWER(nome) LIKE ?
+        OR LOWER(codigo) LIKE ?
+      )
+    `)
 
     const search =
       `%${filters.q.toLowerCase()}%`
@@ -232,6 +221,10 @@ export async function findAll(
     )
   }
 
+  // =========================
+  // TIPO PRODUTO
+  // =========================
+
   if (
     filters.idTipoProduto !==
     undefined
@@ -241,9 +234,13 @@ export async function findAll(
     )
 
     params.push(
-      filters.idTipoProduto
+      Number(filters.idTipoProduto)
     )
   }
+
+  // =========================
+  // CATEGORIA
+  // =========================
 
   if (
     filters.idCategoria !==
@@ -254,9 +251,13 @@ export async function findAll(
     )
 
     params.push(
-      filters.idCategoria
+      Number(filters.idCategoria)
     )
   }
+
+  // =========================
+  // MODELO
+  // =========================
 
   if (
     filters.idModelo !==
@@ -267,9 +268,13 @@ export async function findAll(
     )
 
     params.push(
-      filters.idModelo
+      Number(filters.idModelo)
     )
   }
+
+  // =========================
+  // WHERE
+  // =========================
 
   const whereClause =
     conditions.length > 0
@@ -278,62 +283,104 @@ export async function findAll(
         )}`
       : ''
 
+  // =========================
+  // PAGINAÇÃO
+  // =========================
+
+  let page = Number(
+    pagination?.page
+  )
+
+  let limit = Number(
+    pagination?.limit
+  )
+
+  if (
+    !Number.isFinite(page) ||
+    page < 1
+  ) {
+    page = 1
+  }
+
+  if (
+    !Number.isFinite(limit) ||
+    limit < 1
+  ) {
+    limit = 20
+  }
+
+  page = Math.floor(page)
+
+  limit = Math.floor(limit)
+
+  // Limite máximo
+  if (limit > 100) {
+    limit = 100
+  }
+
   const offset =
-    (pagination.page - 1) *
-    pagination.limit
+    (page - 1) * limit
+
+  // =========================
+  // SQL
+  // =========================
+  //
+  // LIMIT e OFFSET NÃO usam ?
+  //
+  // Eles são números já validados
+  // acima.
+  // =========================
+
+  const selectSql = `
+    SELECT
+      id,
+      id_tipo_produto,
+      id_categoria,
+      id_modelo,
+      nome,
+      codigo,
+      descricao,
+      unidade,
+      controla_estoque,
+      permite_venda,
+      permite_compra,
+      permite_producao,
+      status,
+      data_cadastro
+    FROM produtos
+    ${whereClause}
+    ORDER BY nome ASC
+    LIMIT ${limit}
+    OFFSET ${offset}
+  `
+
+  const countSql = `
+    SELECT
+      COUNT(*) AS total
+    FROM produtos
+    ${whereClause}
+  `
 
   const [
     [rows],
     [countRows],
   ] = await Promise.all([
     db.execute<ProdutoRow[]>(
-      `
-        SELECT
-          id,
-          id_tipo_produto,
-          id_categoria,
-          id_modelo,
-          nome,
-          codigo,
-          descricao,
-          unidade,
-          controla_estoque,
-          permite_venda,
-          permite_compra,
-          permite_producao,
-          status,
-          data_cadastro
-        FROM produtos
-        ${whereClause}
-        ORDER BY nome ASC
-        LIMIT ?
-        OFFSET ?
-      `,
-      [
-        ...params,
-        pagination.limit,
-        offset,
-      ]
+      selectSql,
+      params
     ),
 
     db.execute<CountRow[]>(
-      `
-        SELECT
-          COUNT(*) AS total
-        FROM produtos
-        ${whereClause}
-      `,
+      countSql,
       params
     ),
   ])
 
   return {
-    rows:
-      rows.map(mapProduto),
-
-    count:
-      countRows[0]?.total ??
-      0,
+    rows: rows.map(mapProduto),
+    count: Number(
+      countRows[0]?.total ?? 0
+    ),
   }
 }
 
@@ -341,9 +388,7 @@ export async function findById(
   id: number
 ): Promise<Produto | null> {
   const [rows] =
-    await db.execute<
-      ProdutoRow[]
-    >(
+    await db.execute<ProdutoRow[]>(
       `
         SELECT
           id,
@@ -364,7 +409,7 @@ export async function findById(
         WHERE id = ?
         LIMIT 1
       `,
-      [id]
+      [Number(id)]
     )
 
   const row = rows[0]
@@ -380,9 +425,7 @@ export async function findByCodigo(
   codigo: string
 ): Promise<Produto | null> {
   const [rows] =
-    await db.execute<
-      ProdutoRow[]
-    >(
+    await db.execute<ProdutoRow[]>(
       `
         SELECT
           id,
@@ -419,8 +462,7 @@ export async function update(
   id: number,
   data: UpdateProdutoData
 ): Promise<Produto | null> {
-  const fields: string[] =
-    []
+  const fields: string[] = []
 
   const values: Array<
     string |
@@ -438,7 +480,7 @@ export async function update(
     )
 
     values.push(
-      data.id_tipo_produto
+      Number(data.id_tipo_produto)
     )
   }
 
@@ -451,7 +493,7 @@ export async function update(
     )
 
     values.push(
-      data.id_categoria
+      Number(data.id_categoria)
     )
   }
 
@@ -464,32 +506,22 @@ export async function update(
     )
 
     values.push(
-      data.id_modelo
+      Number(data.id_modelo)
     )
   }
 
   if (
     data.nome !== undefined
   ) {
-    fields.push(
-      'nome = ?'
-    )
-
-    values.push(
-      data.nome
-    )
+    fields.push('nome = ?')
+    values.push(data.nome)
   }
 
   if (
     data.codigo !== undefined
   ) {
-    fields.push(
-      'codigo = ?'
-    )
-
-    values.push(
-      data.codigo
-    )
+    fields.push('codigo = ?')
+    values.push(data.codigo)
   }
 
   if (
@@ -500,21 +532,14 @@ export async function update(
       'descricao = ?'
     )
 
-    values.push(
-      data.descricao
-    )
+    values.push(data.descricao)
   }
 
   if (
     data.unidade !== undefined
   ) {
-    fields.push(
-      'unidade = ?'
-    )
-
-    values.push(
-      data.unidade
-    )
+    fields.push('unidade = ?')
+    values.push(data.unidade)
   }
 
   if (
@@ -572,22 +597,15 @@ export async function update(
   if (
     data.status !== undefined
   ) {
-    fields.push(
-      'status = ?'
-    )
-
-    values.push(
-      data.status
-    )
+    fields.push('status = ?')
+    values.push(data.status)
   }
 
-  if (
-    fields.length === 0
-  ) {
+  if (fields.length === 0) {
     return findById(id)
   }
 
-  values.push(id)
+  values.push(Number(id))
 
   const [result] =
     await db.execute<ResultSetHeader>(
@@ -619,7 +637,7 @@ export async function softDelete(
         WHERE id = ?
           AND status <> 'INATIVO'
       `,
-      [id]
+      [Number(id)]
     )
 
   return (

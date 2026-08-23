@@ -58,9 +58,6 @@ export const createProdutoFornecedorSchema =
       id_produto:
         idSchema,
 
-      id_fornecedor:
-        idSchema,
-
       codigo_produto_fornecedor:
         z
           .string({
@@ -107,9 +104,6 @@ export const updateProdutoFornecedorSchema =
         idSchema.optional(),
 
       id_produto:
-        idSchema.optional(),
-
-      id_fornecedor:
         idSchema.optional(),
 
       codigo_produto_fornecedor:
@@ -212,13 +206,6 @@ export const listProdutoFornecedorSchema =
         .optional(),
 
     id_produto:
-      z.coerce
-        .number()
-        .int()
-        .positive()
-        .optional(),
-
-    id_fornecedor:
       z.coerce
         .number()
         .int()
